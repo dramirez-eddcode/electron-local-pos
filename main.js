@@ -112,3 +112,65 @@ ipcMain.handle('get-printers', async () => {
     return { success: false, error: error.message }
   }
 })
+
+// IPC Handler para abrir cajón de dinero
+ipcMain.handle('open-cash-drawer', async () => {
+  try {
+    const { createCashDrawerCommand } = await import('./src/services/printerService.js')
+    const command = createCashDrawerCommand()
+    
+    console.log('Opening cash drawer...')
+    
+    // Crear una ventana invisible para enviar el comando
+    const printWindow = new BrowserWindow({
+      width: 1,
+      height: 1,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    })
+
+    // Crear contenido HTML mínimo para poder imprimir
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Cash Drawer Command</title></head>
+      <body style="margin:0;padding:0;"><div style="width:1px;height:1px;"></div></body>
+      </html>
+    `
+    
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
+    
+    // Esperar un momento
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // Enviar comando raw a la impresora
+    const result = await new Promise((resolve, reject) => {
+      printWindow.webContents.print({
+        silent: true,
+        printBackground: false,
+        deviceName: '', // Usar impresora predeterminada
+      }, (success, failureReason) => {
+        console.log('Cash drawer command - Success:', success, 'Reason:', failureReason)
+        
+        if (success) {
+          resolve({ success: true, message: 'Comando enviado al cajón de dinero' })
+        } else {
+          resolve({ success: false, error: failureReason || 'Error al enviar comando al cajón' })
+        }
+      })
+    })
+
+    // Cerrar la ventana
+    setTimeout(() => {
+      printWindow.close()
+    }, 500)
+    
+    return result
+  } catch (error) {
+    console.error('Error al abrir cajón de dinero:', error)
+    return { success: false, error: error.message }
+  }
+})

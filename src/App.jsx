@@ -4,6 +4,8 @@ function App() {
   const [count, setCount] = useState(0)
   const [printing, setPrinting] = useState(false)
   const [printResult, setPrintResult] = useState(null)
+  const [openingDrawer, setOpeningDrawer] = useState(false)
+  const [drawerResult, setDrawerResult] = useState(null)
 
   useEffect(() => {
     console.log('App loaded, checking electronAPI:', !!window.electronAPI)
@@ -43,6 +45,31 @@ function App() {
       setPrintResult({ success: false, error: error.message })
     } finally {
       setPrinting(false)
+    }
+  }
+
+  const handleOpenCashDrawer = async () => {
+    setOpeningDrawer(true)
+    setDrawerResult(null)
+    
+    // Verificar si la API de Electron está disponible
+    if (!window.electronAPI) {
+      setDrawerResult({ 
+        success: false, 
+        error: "API de Electron no disponible. Asegúrate de que la aplicación esté ejecutándose en Electron." 
+      })
+      setOpeningDrawer(false)
+      return
+    }
+    
+    try {
+      const result = await window.electronAPI.openCashDrawer()
+      setDrawerResult(result)
+    } catch (error) {
+      console.error('Error al abrir cajón:', error)
+      setDrawerResult({ success: false, error: error.message })
+    } finally {
+      setOpeningDrawer(false)
     }
   }
 
@@ -103,11 +130,13 @@ function App() {
           </div>
 
           <div className="mt-8 p-6 bg-orange-50 border border-orange-200 rounded-lg">
-            <h3 className="font-semibold text-orange-900 mb-4">🖨️ Prueba de Impresión</h3>
+            <h3 className="font-semibold text-orange-900 mb-4">🖨️ Pruebas de Impresión</h3>
+            
+            {/* Botón Imprimir Ticket */}
             <button
               onClick={handlePrintTest}
               disabled={printing}
-              className={`w-full px-6 py-3 rounded-lg font-semibold transition-all ${
+              className={`w-full px-6 py-3 rounded-lg font-semibold transition-all mb-3 ${
                 printing 
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-orange-500 hover:bg-orange-600 text-white'
@@ -117,7 +146,7 @@ function App() {
             </button>
             
             {printResult && (
-              <div className={`mt-4 p-3 rounded-lg text-sm ${
+              <div className={`mb-3 p-3 rounded-lg text-sm ${
                 printResult.success 
                   ? 'bg-green-100 text-green-800 border border-green-200' 
                   : 'bg-red-100 text-red-800 border border-red-200'
@@ -125,6 +154,32 @@ function App() {
                 {printResult.success 
                   ? `✅ ${printResult.message}` 
                   : `❌ Error: ${printResult.error}`
+                }
+              </div>
+            )}
+
+            {/* Botón Abrir Cajón */}
+            <button
+              onClick={handleOpenCashDrawer}
+              disabled={openingDrawer}
+              className={`w-full px-6 py-3 rounded-lg font-semibold transition-all ${
+                openingDrawer 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              {openingDrawer ? 'Abriendo cajón...' : '💰 Abrir Cajón de Dinero'}
+            </button>
+            
+            {drawerResult && (
+              <div className={`mt-3 p-3 rounded-lg text-sm ${
+                drawerResult.success 
+                  ? 'bg-green-100 text-green-800 border border-green-200' 
+                  : 'bg-red-100 text-red-800 border border-red-200'
+              }`}>
+                {drawerResult.success 
+                  ? `✅ ${drawerResult.message}` 
+                  : `❌ Error: ${drawerResult.error}`
                 }
               </div>
             )}

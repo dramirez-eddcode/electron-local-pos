@@ -1,3 +1,11 @@
+// Comandos ESC/POS para abrir cajón de dinero
+export const createCashDrawerCommand = () => {
+  // ESC/POS command para abrir cajón: ESC p m t1 t2
+  // ESC = 0x1B, p = 0x70, m = 0x00 (pin 2), t1 = 0x19 (25*2ms = 50ms), t2 = 0xFA (250*2ms = 500ms)
+  const command = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+  return command;
+};
+
 export const createTicketHTML = (ticketData) => {
   const { 
     storeName = "ELECTRON LOCAL POS", 

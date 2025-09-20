@@ -5,5 +5,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     console.log('Enviando ticket a impresión...')
     return ipcRenderer.invoke('print-ticket', ticketData)
   },
-  getPrinters: () => ipcRenderer.invoke('get-printers')
+  getPrinters: () => ipcRenderer.invoke('get-printers'),
+  openCashDrawer: () => {
+    console.log('Enviando comando para abrir cajón de dinero...')
+    return ipcRenderer.invoke('open-cash-drawer')
+  }
 })
