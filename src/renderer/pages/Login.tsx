@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import Logo from '../components/common/Logo';
 
 interface LoginCredentials {
   usuario: string;
@@ -59,13 +60,10 @@ const Login: React.FC = () => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header con logo */}
         <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-8 text-center">
-          <div className="bg-yellow-300 rounded-full w-32 h-32 mx-auto flex items-center justify-center shadow-lg">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-red-600 leading-tight">FARMACIAS</h1>
-              <h2 className="text-3xl font-bold text-blue-600 leading-tight">MS</h2>
-              <p className="text-xs text-gray-700 mt-1">GRUPO</p>
-              <p className="text-xs text-gray-700">SIMILARES Y GENÉRICOS</p>
-            </div>
+          <Logo size="large" variant="vertical" className="mx-auto" showText={false} />
+          <div className="text-white mt-4">
+            <h1 className="text-2xl font-bold">FARMACIAS MS</h1>
+            <p className="text-sm opacity-90 mt-1">GRUPO SIMILARES Y GENÉRICOS</p>
           </div>
           <h3 className="text-white text-xl font-semibold mt-4">SISTEMA POS</h3>
           <p className="text-blue-100 text-sm">Punto de Venta Local</p>
@@ -147,15 +145,33 @@ const Login: React.FC = () => {
             </div>
           </form>
 
-          {/* Información de usuario por defecto */}
-          <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="text-sm font-semibold text-blue-800 mb-2">👤 Usuario por defecto:</h4>
-            <div className="text-xs text-blue-700 space-y-1">
-              <p><strong>Usuario:</strong> admin</p>
-              <p><strong>Contraseña:</strong> admin123</p>
-              <p className="text-blue-600 mt-2">
-                💡 Cambie la contraseña después del primer acceso
-              </p>
+          {/* Panel de usuarios de prueba */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-blue-800 mb-3 text-center">👥 Usuarios de Prueba</h4>
+            <div className="space-y-2 text-sm">
+              <div className="bg-white p-2 rounded border">
+                <strong className="text-red-600">🔑 Administrador:</strong> admin / admin123
+                <br />
+                <span className="text-gray-600">Acceso completo al sistema</span>
+              </div>
+              <div className="bg-white p-2 rounded border">
+                <strong className="text-blue-600">👨‍💼 Supervisor:</strong> supervisor / super123
+                <br />
+                <span className="text-gray-600">Ventas, inventario, reportes, PLM</span>
+              </div>
+              <div className="bg-white p-2 rounded border">
+                <strong className="text-green-600">💰 Cajero:</strong> cajero / cajero123
+                <br />
+                <span className="text-gray-600">Solo ventas y corte de caja</span>
+              </div>
+              <div className="bg-white p-2 rounded border">
+                <strong className="text-green-600">💰 Cajera:</strong> maria / maria123
+                <br />
+                <span className="text-gray-600">Solo ventas y corte de caja</span>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-center text-gray-500">
+              🔧 Entorno de desarrollo - Todos los usuarios están disponibles
             </div>
           </div>
         </div>

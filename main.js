@@ -50,7 +50,8 @@ const createTicketHTML = (ticketData) => {
     ticketNumber = Date.now().toString().slice(-6),
     items = [],
     total = 0,
-    date = new Date().toLocaleString('es-ES')
+    date = new Date().toLocaleString('es-ES'),
+    logoPath = null
   } = ticketData;
 
   const itemsHTML = items.map(item => `
@@ -92,6 +93,7 @@ const createTicketHTML = (ticketData) => {
     <body>
       <div class="ticket">
         <div class="header">
+          ${logoPath ? `<div class="logo" style="text-align: center; margin-bottom: 8px;"><img src="${logoPath}" alt="Logo" style="max-width: 80px; max-height: 80px; object-fit: contain;"></div>` : ''}
           <div class="store-name">${storeName}</div>
           <div class="store-address">${storeAddress}</div>
         </div>
@@ -263,26 +265,79 @@ function setupIPC() {
 
   // Handlers básicos para la nueva funcionalidad (temporales)
   ipcMain.handle('auth:login', async (event, credentials) => {
-    // Simulación básica de login
-    if (credentials.usuario === 'admin' && credentials.password === 'admin123') {
+    // Base de datos de usuarios simulada
+    const usuarios = {
+      // Administrador - Acceso completo
+      'admin': {
+        password: 'admin123',
+        user: {
+          ID_USUARIO: 1,
+          LOGIN_USUARIO: 'admin',
+          NOMBRE_USUARIO: 'Ana García - Administrador',
+          ID_TIPOUSUARIO: 1, // Administrador
+          SUCURSAL_ID: 'SUCURSAL-001',
+          PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
+        },
+        token: 'admin-jwt-token-dev'
+      },
+      
+      // Cajero - Solo ventas básicas
+      'cajero': {
+        password: 'cajero123',
+        user: {
+          ID_USUARIO: 2,
+          LOGIN_USUARIO: 'cajero',
+          NOMBRE_USUARIO: 'Carlos Hernández - Cajero',
+          ID_TIPOUSUARIO: 2, // Cajero
+          SUCURSAL_ID: 'SUCURSAL-001',
+          PERMISOS: ['ventas', 'corte_caja']
+        },
+        token: 'cajero-jwt-token-dev'
+      },
+      
+      // Supervisor - Ventas + reportes + inventario
+      'supervisor': {
+        password: 'super123',
+        user: {
+          ID_USUARIO: 3,
+          LOGIN_USUARIO: 'supervisor',
+          NOMBRE_USUARIO: 'María López - Supervisor',
+          ID_TIPOUSUARIO: 3, // Supervisor
+          SUCURSAL_ID: 'SUCURSAL-001',
+          PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'plm']
+        },
+        token: 'supervisor-jwt-token-dev'
+      },
+      
+      // Cajero 2 - Otro cajero para pruebas
+      'maria': {
+        password: 'maria123',
+        user: {
+          ID_USUARIO: 4,
+          LOGIN_USUARIO: 'maria',
+          NOMBRE_USUARIO: 'María Rodríguez - Cajera',
+          ID_TIPOUSUARIO: 2, // Cajero
+          SUCURSAL_ID: 'SUCURSAL-001',
+          PERMISOS: ['ventas', 'corte_caja']
+        },
+        token: 'maria-jwt-token-dev'
+      }
+    };
+
+    const userData = usuarios[credentials.usuario];
+    
+    if (userData && userData.password === credentials.password) {
       return {
         success: true,
         data: {
-          user: {
-            ID_USUARIO: 1,
-            LOGIN_USUARIO: 'admin',
-            NOMBRE_USUARIO: 'Administrador',
-            ID_TIPOUSUARIO: 1,
-            SUCURSAL_ID: 'SUCURSAL-001',
-            PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
-          },
-          token: 'fake-jwt-token-for-development'
+          user: userData.user,
+          token: userData.token
         }
       };
     } else {
       return {
         success: false,
-        error: 'Credenciales incorrectas'
+        error: 'Usuario o contraseña incorrectos'
       };
     }
   });
@@ -292,17 +347,57 @@ function setupIPC() {
   });
 
   ipcMain.handle('auth:verifyToken', async (event, token) => {
-    if (token === 'fake-jwt-token-for-development') {
+    // Mapeo de tokens a usuarios para verificación
+    const tokenUsers = {
+      'admin-jwt-token-dev': {
+        ID_USUARIO: 1,
+        LOGIN_USUARIO: 'admin',
+        NOMBRE_USUARIO: 'Ana García - Administrador',
+        ID_TIPOUSUARIO: 1,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
+      },
+      'cajero-jwt-token-dev': {
+        ID_USUARIO: 2,
+        LOGIN_USUARIO: 'cajero',
+        NOMBRE_USUARIO: 'Carlos Hernández - Cajero',
+        ID_TIPOUSUARIO: 2,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        PERMISOS: ['ventas', 'corte_caja']
+      },
+      'supervisor-jwt-token-dev': {
+        ID_USUARIO: 3,
+        LOGIN_USUARIO: 'supervisor',
+        NOMBRE_USUARIO: 'María López - Supervisor',
+        ID_TIPOUSUARIO: 3,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'plm']
+      },
+      'maria-jwt-token-dev': {
+        ID_USUARIO: 4,
+        LOGIN_USUARIO: 'maria',
+        NOMBRE_USUARIO: 'María Rodríguez - Cajera',
+        ID_TIPOUSUARIO: 2,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        PERMISOS: ['ventas', 'corte_caja']
+      },
+      // Mantener compatibilidad con token anterior
+      'fake-jwt-token-for-development': {
+        ID_USUARIO: 1,
+        LOGIN_USUARIO: 'admin',
+        NOMBRE_USUARIO: 'Ana García - Administrador',
+        ID_TIPOUSUARIO: 1,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
+      }
+    };
+
+    const userData = tokenUsers[token];
+    
+    if (userData) {
       return {
         success: true,
-        data: {
-          ID_USUARIO: 1,
-          LOGIN_USUARIO: 'admin',
-          NOMBRE_USUARIO: 'Administrador',
-          ID_TIPOUSUARIO: 1,
-          SUCURSAL_ID: 'SUCURSAL-001',
-          PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
-        }
+        data: userData
       };
     } else {
       return { success: false, error: 'Token inválido' };
@@ -330,6 +425,128 @@ function setupIPC() {
   ipcMain.handle('db:query', async (event, sql, params) => {
     console.log('Simulando query:', sql);
     return { success: true, data: [{ count: 0 }] };
+  });
+
+  // Handlers para administración de usuarios
+  ipcMain.handle('admin:getUsers', async () => {
+    // Simulación de usuarios de la base de datos
+    const usuarios = [
+      {
+        ID_USUARIO: 1,
+        LOGIN_USUARIO: 'admin',
+        NOMBRE_USUARIO: 'Ana García - Administrador',
+        ID_TIPOUSUARIO: 1,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        ACTIVO: true,
+        FECHA_CREACION: '2024-01-15',
+        ULTIMO_LOGIN: '2024-01-20 10:30:00'
+      },
+      {
+        ID_USUARIO: 2,
+        LOGIN_USUARIO: 'cajero',
+        NOMBRE_USUARIO: 'Carlos Hernández - Cajero',
+        ID_TIPOUSUARIO: 2,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        ACTIVO: true,
+        FECHA_CREACION: '2024-01-16',
+        ULTIMO_LOGIN: '2024-01-20 08:15:00'
+      },
+      {
+        ID_USUARIO: 3,
+        LOGIN_USUARIO: 'supervisor',
+        NOMBRE_USUARIO: 'María López - Supervisor',
+        ID_TIPOUSUARIO: 3,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        ACTIVO: true,
+        FECHA_CREACION: '2024-01-17',
+        ULTIMO_LOGIN: '2024-01-19 16:45:00'
+      },
+      {
+        ID_USUARIO: 4,
+        LOGIN_USUARIO: 'maria',
+        NOMBRE_USUARIO: 'María Rodríguez - Cajera',
+        ID_TIPOUSUARIO: 2,
+        SUCURSAL_ID: 'SUCURSAL-001',
+        ACTIVO: true,
+        FECHA_CREACION: '2024-01-18',
+        ULTIMO_LOGIN: '2024-01-20 09:00:00'
+      }
+    ];
+    
+    return { success: true, data: usuarios };
+  });
+
+  ipcMain.handle('admin:getUserTypes', async () => {
+    const tipos = [
+      {
+        ID_TIPOUSUARIO: 1,
+        NOMBRE_TIPO: 'Administrador',
+        PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'configuracion', 'usuarios', 'backup', 'sincronizacion', 'plm']
+      },
+      {
+        ID_TIPOUSUARIO: 2,
+        NOMBRE_TIPO: 'Cajero',
+        PERMISOS: ['ventas', 'corte_caja']
+      },
+      {
+        ID_TIPOUSUARIO: 3,
+        NOMBRE_TIPO: 'Supervisor',
+        PERMISOS: ['ventas', 'cancelar_ventas', 'corte_caja', 'inventario', 'reportes', 'plm']
+      }
+    ];
+    
+    return { success: true, data: tipos };
+  });
+
+  ipcMain.handle('admin:createUser', async (event, userData) => {
+    console.log('Creando usuario:', userData);
+    // Simular creación de usuario
+    return { 
+      success: true, 
+      data: { 
+        ...userData, 
+        ID_USUARIO: Date.now(), 
+        FECHA_CREACION: new Date().toISOString().split('T')[0] 
+      },
+      message: 'Usuario creado exitosamente' 
+    };
+  });
+
+  ipcMain.handle('admin:updateUser', async (event, userData) => {
+    console.log('Actualizando usuario:', userData);
+    // Simular actualización de usuario
+    return { success: true, message: 'Usuario actualizado exitosamente' };
+  });
+
+  ipcMain.handle('admin:deleteUser', async (event, userId) => {
+    console.log('Eliminando usuario:', userId);
+    // Simular eliminación de usuario
+    return { success: true, message: 'Usuario eliminado exitosamente' };
+  });
+
+  ipcMain.handle('admin:createUserType', async (event, typeData) => {
+    console.log('Creando tipo de usuario:', typeData);
+    // Simular creación de tipo
+    return { 
+      success: true, 
+      data: { 
+        ...typeData, 
+        ID_TIPOUSUARIO: Date.now() 
+      },
+      message: 'Tipo de usuario creado exitosamente' 
+    };
+  });
+
+  ipcMain.handle('admin:updateUserType', async (event, typeData) => {
+    console.log('Actualizando tipo de usuario:', typeData);
+    // Simular actualización de tipo
+    return { success: true, message: 'Tipo de usuario actualizado exitosamente' };
+  });
+
+  ipcMain.handle('admin:deleteUserType', async (event, typeId) => {
+    console.log('Eliminando tipo de usuario:', typeId);
+    // Simular eliminación de tipo
+    return { success: true, message: 'Tipo de usuario eliminado exitosamente' };
   });
 
   console.log('IPC handlers configurados (versión de desarrollo)');

@@ -63,6 +63,16 @@ export interface ElectronAPI {
   getSystemInfo: () => Promise<{ success: boolean; data?: any; error?: string }>;
   checkOnline: () => Promise<{ success: boolean; data?: boolean; error?: string }>;
   getUSBDevices: () => Promise<{ success: boolean; data?: any[]; error?: string }>;
+
+  // Administración
+  getUsers: () => Promise<{ success: boolean; data?: any[]; error?: string }>;
+  getUserTypes: () => Promise<{ success: boolean; data?: any[]; error?: string }>;
+  createUser: (userData: any) => Promise<{ success: boolean; data?: any; message?: string; error?: string }>;
+  updateUser: (userData: any) => Promise<{ success: boolean; message?: string; error?: string }>;
+  deleteUser: (userId: number) => Promise<{ success: boolean; message?: string; error?: string }>;
+  createUserType: (typeData: any) => Promise<{ success: boolean; data?: any; message?: string; error?: string }>;
+  updateUserType: (typeData: any) => Promise<{ success: boolean; message?: string; error?: string }>;
+  deleteUserType: (typeId: number) => Promise<{ success: boolean; message?: string; error?: string }>;
 }
 
 declare global {

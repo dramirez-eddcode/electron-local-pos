@@ -46,21 +46,20 @@ export interface SucursalConfiguracion {
 // Productos
 export interface Producto {
   ID_PRODUCTO: number;
-  CODIGO_PRODUCTO: string;
+  CODIGO_BARRAS: string;
+  CODIGO_PLM: string;
   NOMBRE_PRODUCTO: string;
-  SUSTANCIA_PRODUCTO?: string;
-  CANTIDAD_PRODUCTO: number;
-  PRECIO_PRODUCTO: number;
-  COSTO_PRODUCTO?: number;
-  ID_LABORATORIO?: number;
-  MAX_PRODUCTO?: number;
-  MIN_PRODUCTO?: number;
-  IVA_PRODUCTO: boolean;
-  SUCURSAL_ID: string;
-  FECHA_CADUCIDAD?: string;
-  FECHA_CREACION: string;
-  FECHA_MODIFICACION: string;
+  DESCRIPCION?: string;
+  PRECIO_VENTA: number;
+  PRECIO_COMPRA: number;
+  STOCK_ACTUAL: number;
+  STOCK_MINIMO: number;
   ACTIVO: boolean;
+  SUCURSAL_ID: string;
+  FECHA_CREACION: Date;
+  FECHA_ACTUALIZACION: Date;
+  SINCRONIZADO: boolean;
+  FECHA_SINCRONIZACION?: Date;
 }
 
 export interface Laboratorio {
@@ -110,11 +109,12 @@ export interface MovSalida {
 
 // Carrito de compras
 export interface ItemCarrito {
-  producto: Producto;
+  ID_PRODUCTO: number;
+  CODIGO_BARRAS: string;
+  NOMBRE_PRODUCTO: string;
+  precio: number;
   cantidad: number;
-  precio_unitario: number;
   subtotal: number;
-  fecha_caducidad?: string;
 }
 
 // Corte de caja

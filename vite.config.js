@@ -28,5 +28,8 @@ export default defineConfig({
   define: {
     // Para compatibilidad con algunas librerías
     global: 'globalThis'
-  }
+  },
+  // Configuración para servir assets estáticos
+  publicDir: 'public',
+  assetsInclude: ['**/*.png', '**/*.jpg', '**/*.jpeg', '**/*.gif', '**/*.svg']
 })

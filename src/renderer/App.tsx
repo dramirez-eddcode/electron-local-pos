@@ -5,6 +5,8 @@ import { useAuth } from './store/authStore';
 // Componentes
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import POS from './pages/POS';
+import Admin from './pages/Admin';
 import Layout from './components/common/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
@@ -111,18 +113,13 @@ function App() {
             } 
           />
 
-          {/* Rutas futuras del sistema */}
+          {/* Punto de Venta */}
           <Route 
             path="/pos" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredPermission="ventas">
                 <Layout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Módulo POS</h1>
-                    <p className="text-gray-600 mt-2">
-                      FASE 3 - Punto de Venta (En desarrollo)
-                    </p>
-                  </div>
+                  <POS />
                 </Layout>
               </ProtectedRoute>
             } 
@@ -163,14 +160,9 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              <ProtectedRoute requiredRole={1}>
+              <ProtectedRoute requiredPermission="usuarios">
                 <Layout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Administración</h1>
-                    <p className="text-gray-600 mt-2">
-                      Panel de administrador (En desarrollo)
-                    </p>
-                  </div>
+                  <Admin />
                 </Layout>
               </ProtectedRoute>
             } 

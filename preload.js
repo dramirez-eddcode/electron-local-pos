@@ -65,5 +65,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Sistema
   getSystemInfo: () => ipcRenderer.invoke('system:getInfo'),
   checkOnline: () => ipcRenderer.invoke('system:checkOnline'),
-  getUSBDevices: () => ipcRenderer.invoke('system:getUSBDevices')
+  getUSBDevices: () => ipcRenderer.invoke('system:getUSBDevices'),
+
+  // Administración
+  getUsers: () => ipcRenderer.invoke('admin:getUsers'),
+  getUserTypes: () => ipcRenderer.invoke('admin:getUserTypes'),
+  createUser: (userData) => ipcRenderer.invoke('admin:createUser', userData),
+  updateUser: (userData) => ipcRenderer.invoke('admin:updateUser', userData),
+  deleteUser: (userId) => ipcRenderer.invoke('admin:deleteUser', userId),
+  createUserType: (typeData) => ipcRenderer.invoke('admin:createUserType', typeData),
+  updateUserType: (typeData) => ipcRenderer.invoke('admin:updateUserType', typeData),
+  deleteUserType: (typeId) => ipcRenderer.invoke('admin:deleteUserType', typeId)
 })

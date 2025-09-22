@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../store/authStore';
+import { prepareTicketData } from '../utils/logoUtils';
+import LogoStatus from '../components/common/LogoStatus';
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const { 
     user, 
     sucursal, 
@@ -18,7 +22,8 @@ const Dashboard: React.FC = () => {
   // Funciones de prueba para verificar la conectividad con el backend
   const testPrintTicket = async () => {
     try {
-      const testTicket = {
+      // Preparar datos del ticket de prueba con logo
+      const baseTestTicket = {
         storeName: "FARMACIAS MS - PRUEBA",
         storeAddress: sucursal?.DIRECCION || "Dirección de prueba",
         items: [
@@ -30,6 +35,8 @@ const Dashboard: React.FC = () => {
         usuario: getUserName(),
         sucursal: sucursal?.NOMBRE_SUCURSAL
       };
+
+      const testTicket = await prepareTicketData(baseTestTicket);
 
       const result = await window.electronAPI.printTicket(testTicket);
       setTestResult({ type: 'print', result });
@@ -86,19 +93,56 @@ const Dashboard: React.FC = () => {
           </div>
 
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-purple-900 mb-2">🔐 Permisos</h3>
-            <div className="space-y-1 text-sm">
-              <p className={`${canViewReports() ? 'text-green-600' : 'text-red-600'}`}>
-                {canViewReports() ? '✅' : '❌'} Reportes
+            <h3 className="text-lg font-semibold text-purple-900 mb-2">🔐 Permisos del Usuario</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+              <p className={`${hasPermission('ventas') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('ventas') ? '✅' : '❌'} Ventas
+              </p>
+              <p className={`${hasPermission('cancelar_ventas') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('cancelar_ventas') ? '✅' : '❌'} Cancelar Ventas
+              </p>
+              <p className={`${hasPermission('corte_caja') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('corte_caja') ? '✅' : '❌'} Corte de Caja
               </p>
               <p className={`${canManageInventory() ? 'text-green-600' : 'text-red-600'}`}>
                 {canManageInventory() ? '✅' : '❌'} Inventario
               </p>
+              <p className={`${canViewReports() ? 'text-green-600' : 'text-red-600'}`}>
+                {canViewReports() ? '✅' : '❌'} Reportes
+              </p>
+              <p className={`${hasPermission('configuracion') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('configuracion') ? '✅' : '❌'} Configuración
+              </p>
               <p className={`${canManageUsers() ? 'text-green-600' : 'text-red-600'}`}>
                 {canManageUsers() ? '✅' : '❌'} Usuarios
               </p>
+              <p className={`${hasPermission('backup') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('backup') ? '✅' : '❌'} Respaldos
+              </p>
+              <p className={`${hasPermission('sincronizacion') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('sincronizacion') ? '✅' : '❌'} Sincronización
+              </p>
+              <p className={`${hasPermission('plm') ? 'text-green-600' : 'text-red-600'}`}>
+                {hasPermission('plm') ? '✅' : '❌'} PLM
+              </p>
+            </div>
+            
+            {/* Explicación de roles */}
+            <div className="mt-4 p-3 bg-white rounded border border-purple-200">
+              <h4 className="font-medium text-gray-800 mb-2">📋 Tipos de Usuario:</h4>
+              <div className="text-xs space-y-1">
+                <p><strong className="text-red-600">🔑 Administrador:</strong> Acceso total - gestión completa del sistema</p>
+                <p><strong className="text-blue-600">👨‍💼 Supervisor:</strong> Ventas + inventario + reportes + PLM (sin administración)</p>
+                <p><strong className="text-green-600">💰 Cajero:</strong> Solo ventas y corte de caja (operaciones básicas)</p>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Estado del Logo */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">🎨 Estado del Logo</h2>
+          <LogoStatus />
         </div>
 
         {/* Funciones de prueba */}
@@ -146,9 +190,17 @@ const Dashboard: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">🚀 Navegación Rápida</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="bg-orange-500 text-white p-4 rounded-lg hover:bg-orange-600 transition-colors">
+            <button 
+              onClick={() => navigate('/pos')}
+              className={`p-4 rounded-lg transition-colors ${
+                hasPermission('ventas') 
+                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!hasPermission('ventas')}
+            >
               <div className="text-2xl mb-2">🛒</div>
-              <div className="font-semibold">Ventas</div>
+              <div className="font-semibold">Punto de Venta</div>
             </button>
             
             <button 
@@ -176,6 +228,7 @@ const Dashboard: React.FC = () => {
             </button>
             
             <button 
+              onClick={() => canManageUsers() && navigate('/admin')}
               className={`p-4 rounded-lg transition-colors ${
                 canManageUsers() 
                   ? 'bg-red-500 text-white hover:bg-red-600' 

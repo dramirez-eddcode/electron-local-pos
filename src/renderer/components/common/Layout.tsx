@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../store/authStore';
+import Logo from './Logo';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -42,12 +43,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="flex justify-between items-center py-4">
             {/* Logo y título */}
             <div className="flex items-center space-x-4">
-              <div className="bg-yellow-300 rounded-full w-16 h-16 flex items-center justify-center shadow-md">
-                <div className="text-center">
-                  <h1 className="text-sm font-bold text-red-600 leading-tight">FARMACIAS</h1>
-                  <h2 className="text-lg font-bold text-blue-600 leading-tight">MS</h2>
-                </div>
-              </div>
+              <Logo size="medium" variant="horizontal" showText={false} />
               
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
