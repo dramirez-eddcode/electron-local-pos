@@ -228,6 +228,19 @@ const Dashboard: React.FC = () => {
             </button>
             
             <button 
+              onClick={() => hasPermission('corte_caja') && navigate('/corte-caja')}
+              className={`p-4 rounded-lg transition-colors ${
+                hasPermission('corte_caja') 
+                  ? 'bg-yellow-500 text-white hover:bg-yellow-600' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!hasPermission('corte_caja')}
+            >
+              <div className="text-2xl mb-2">💰</div>
+              <div className="font-semibold">Corte de Caja</div>
+            </button>
+            
+            <button 
               onClick={() => canManageUsers() && navigate('/admin')}
               className={`p-4 rounded-lg transition-colors ${
                 canManageUsers() 

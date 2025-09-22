@@ -42,6 +42,135 @@ function createWindow() {
   });
 }
 
+// Función para crear HTML de corte de caja
+const createCorteHTML = (ticketData, corteData, logoPath) => {
+  const { storeName, storeAddress, ticketNumber, date } = ticketData;
+  const { tipoCorte, ventasResumen, efectivoContado, diferencia, observaciones, usuario } = corteData;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Corte ${tipoCorte} #${ticketNumber}</title>
+      <style>
+        body {
+          font-family: 'Courier New', monospace;
+          font-size: 11px;
+          margin: 0;
+          padding: 8px;
+          width: 58mm;
+          background: white;
+        }
+        .corte { text-align: center; }
+        .header { border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+        .store-name { font-weight: bold; font-size: 13px; margin-bottom: 3px; }
+        .store-address { font-size: 9px; margin-bottom: 3px; }
+        .corte-info { text-align: left; margin: 6px 0; }
+        .section { margin: 8px 0; border-top: 1px solid #000; padding-top: 6px; }
+        .row { display: flex; justify-content: space-between; margin: 2px 0; }
+        .total-row { font-weight: bold; border-top: 1px dashed #000; padding-top: 4px; margin-top: 4px; }
+        .diferencia { 
+          text-align: center; 
+          padding: 4px; 
+          margin: 6px 0; 
+          border: 1px solid #000; 
+          font-weight: bold;
+        }
+        .footer { border-top: 1px dashed #000; padding-top: 6px; margin-top: 8px; text-align: center; font-size: 9px; }
+      </style>
+    </head>
+    <body>
+      <div class="corte">
+        <div class="header">
+          ${logoPath ? `<div class="logo" style="text-align: center; margin-bottom: 6px;"><img src="${logoPath}" alt="Logo" style="max-width: 60px; max-height: 60px; object-fit: contain;"></div>` : ''}
+          <div class="store-name">${storeName}</div>
+          <div class="store-address">${storeAddress}</div>
+        </div>
+        
+        <div class="corte-info">
+          <div><strong>CORTE DE CAJA ${tipoCorte}</strong></div>
+          <div>Corte: #${ticketNumber}</div>
+          <div>Fecha: ${date}</div>
+          <div>Usuario: ${usuario}</div>
+        </div>
+        
+        <div class="section">
+          <div><strong>RESUMEN DE VENTAS</strong></div>
+          <div class="row">
+            <span>Folios Vendidos:</span>
+            <span>${ventasResumen.foliosVendidos}</span>
+          </div>
+          <div class="row">
+            <span>Rango:</span>
+            <span>${ventasResumen.primerFolio} - ${ventasResumen.ultimoFolio}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div><strong>DESGLOSE POR FORMA DE PAGO</strong></div>
+          <div class="row">
+            <span>Efectivo:</span>
+            <span>$${ventasResumen.totalEfectivo.toFixed(2)}</span>
+          </div>
+          <div class="row">
+            <span>Tarjeta:</span>
+            <span>$${ventasResumen.totalTarjeta.toFixed(2)}</span>
+          </div>
+          <div class="total-row row">
+            <span>TOTAL VENDIDO:</span>
+            <span>$${ventasResumen.totalGeneral.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div><strong>CANCELACIONES</strong></div>
+          <div class="row">
+            <span>Notas Canceladas:</span>
+            <span>${ventasResumen.notasCanceladas}</span>
+          </div>
+          <div class="row">
+            <span>Monto Cancelado:</span>
+            <span>$${ventasResumen.montoNotasCanceladas.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <div><strong>ARQUEO DE CAJA</strong></div>
+          <div class="row">
+            <span>Efectivo Sistema:</span>
+            <span>$${ventasResumen.totalEfectivo.toFixed(2)}</span>
+          </div>
+          <div class="row">
+            <span>Efectivo Contado:</span>
+            <span>$${efectivoContado.toFixed(2)}</span>
+          </div>
+          <div class="diferencia">
+            DIFERENCIA: $${diferencia.toFixed(2)}
+            ${diferencia > 0 ? '(SOBRANTE)' : diferencia < 0 ? '(FALTANTE)' : '(CUADRADA)'}
+          </div>
+        </div>
+
+        ${observaciones ? `
+          <div class="section">
+            <div><strong>OBSERVACIONES</strong></div>
+            <div style="text-align: left; font-size: 10px; margin-top: 4px;">
+              ${observaciones}
+            </div>
+          </div>
+        ` : ''}
+        
+        <div class="footer">
+          <div>CORTE ${tipoCorte} GENERADO</div>
+          <div>Sistema POS Farmacias MS</div>
+          ${tipoCorte === 'FINAL' ? '<div style="margin-top: 4px; font-weight: bold;">** TURNO CERRADO **</div>' : ''}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 // Funciones de impresión (mantenidas del original)
 const createTicketHTML = (ticketData) => {
   const { 
@@ -50,9 +179,18 @@ const createTicketHTML = (ticketData) => {
     ticketNumber = Date.now().toString().slice(-6),
     items = [],
     total = 0,
+    tipoPago = 'EFECTIVO',
+    efectivoRecibido = null,
+    cambio = null,
     date = new Date().toLocaleString('es-ES'),
-    logoPath = null
+    logoPath = null,
+    corteData = null
   } = ticketData;
+
+  // Si es un corte de caja, generar HTML específico
+  if (corteData) {
+    return createCorteHTML(ticketData, corteData, logoPath);
+  }
 
   const itemsHTML = items.map(item => `
     <tr>
@@ -115,6 +253,15 @@ const createTicketHTML = (ticketData) => {
         
         <div class="total-section">
           <div class="total">TOTAL: $${total.toFixed(2)}</div>
+          <div style="margin-top: 8px; font-size: 12px;">
+            <div><strong>FORMA DE PAGO:</strong> ${tipoPago === 'EFECTIVO' ? 'EFECTIVO' : 'TARJETA'}</div>
+            ${tipoPago === 'EFECTIVO' && efectivoRecibido !== null ? `
+              <div style="margin-top: 4px;">
+                <div>Efectivo recibido: $${efectivoRecibido.toFixed(2)}</div>
+                <div>Cambio: $${(cambio || 0).toFixed(2)}</div>
+              </div>
+            ` : ''}
+          </div>
         </div>
         
         <div class="footer">
@@ -547,6 +694,157 @@ function setupIPC() {
     console.log('Eliminando tipo de usuario:', typeId);
     // Simular eliminación de tipo
     return { success: true, message: 'Tipo de usuario eliminado exitosamente' };
+  });
+
+  // ============= SISTEMA DE VENTAS =============
+  
+  // Almacenamiento en memoria para ventas (simular base de datos)
+  let ventasStorage = [];
+  let folioCounter = 1001;
+
+  // Generar datos de ventas simuladas para pruebas
+  const generarVentasSimuladas = () => {
+    const hoy = new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    
+    const ventasSimuladas = [];
+    
+    for (let i = 0; i < 25; i++) {
+      const fechaVenta = new Date(inicioMes.getTime() + Math.random() * (hoy.getTime() - inicioMes.getTime()));
+      const tipoPago = Math.random() > 0.6 ? 'EFECTIVO' : 'TARJETA';
+      const total = parseFloat((Math.random() * 500 + 20).toFixed(2));
+      
+      ventasSimuladas.push({
+        folio: `F${String(folioCounter++).padStart(6, '0')}`,
+        fecha: fechaVenta.toISOString(),
+        total,
+        tipoPago,
+        cancelada: Math.random() > 0.95, // 5% de ventas canceladas
+        usuario: ['admin', 'cajero', 'supervisor', 'maria'][Math.floor(Math.random() * 4)],
+        items: [
+          {
+            id: 1,
+            nombre: 'Paracetamol 500mg',
+            cantidad: Math.floor(Math.random() * 3) + 1,
+            precio: 25.50
+          },
+          {
+            id: 2,
+            nombre: 'Ibuprofeno 400mg',
+            cantidad: Math.floor(Math.random() * 2) + 1,
+            precio: 35.00
+          }
+        ]
+      });
+    }
+    
+    return ventasSimuladas;
+  };
+
+  // Inicializar con datos simulados
+  ventasStorage = generarVentasSimuladas();
+
+  // Procesar venta
+  ipcMain.handle('pos:procesarVenta', async (event, ventaData) => {
+    try {
+      console.log('Procesando venta:', ventaData);
+      
+      const nuevaVenta = {
+        folio: `F${String(folioCounter++).padStart(6, '0')}`,
+        fecha: new Date().toISOString(),
+        total: ventaData.total,
+        tipoPago: ventaData.tipoPago,
+        cancelada: false,
+        usuario: ventaData.usuario || 'sistema',
+        efectivo: ventaData.efectivo || 0,
+        cambio: ventaData.cambio || 0,
+        items: ventaData.items || []
+      };
+      
+      // Agregar a storage
+      ventasStorage.push(nuevaVenta);
+      
+      console.log('Venta guardada con folio:', nuevaVenta.folio);
+      
+      return { 
+        success: true, 
+        folio: nuevaVenta.folio,
+        message: 'Venta procesada exitosamente' 
+      };
+      
+    } catch (error) {
+      console.error('Error procesando venta:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Obtener resumen de ventas por rango de fechas
+  ipcMain.handle('pos:getResumenVentas', async (event, { fechaInicio, fechaFin }) => {
+    try {
+      console.log('Obteniendo resumen de ventas del', fechaInicio, 'al', fechaFin);
+      
+      const inicio = new Date(fechaInicio + 'T00:00:00');
+      const fin = new Date(fechaFin + 'T23:59:59');
+      
+      // Filtrar ventas por rango de fechas
+      const ventasFiltradas = ventasStorage.filter(venta => {
+        const fechaVenta = new Date(venta.fecha);
+        return fechaVenta >= inicio && fechaVenta <= fin;
+      });
+      
+      console.log(`Encontradas ${ventasFiltradas.length} ventas en el período`);
+      
+      // Calcular resumen
+      let totalEfectivo = 0;
+      let totalTarjeta = 0;
+      let notasCanceladas = 0;
+      let montoNotasCanceladas = 0;
+      
+      const ventasValidas = ventasFiltradas.filter(v => !v.cancelada);
+      const ventasCanceladas = ventasFiltradas.filter(v => v.cancelada);
+      
+      ventasValidas.forEach(venta => {
+        if (venta.tipoPago === 'EFECTIVO') {
+          totalEfectivo += venta.total;
+        } else if (venta.tipoPago === 'TARJETA') {
+          totalTarjeta += venta.total;
+        }
+      });
+      
+      ventasCanceladas.forEach(venta => {
+        notasCanceladas++;
+        montoNotasCanceladas += venta.total;
+      });
+      
+      const ventasDetalle = ventasFiltradas.map(venta => ({
+        folio: venta.folio,
+        fecha: venta.fecha,
+        total: venta.total,
+        tipoPago: venta.tipoPago,
+        cancelada: venta.cancelada,
+        usuario: venta.usuario
+      }));
+      
+      const resumen = {
+        foliosVendidos: ventasValidas.length,
+        totalEfectivo: parseFloat(totalEfectivo.toFixed(2)),
+        totalTarjeta: parseFloat(totalTarjeta.toFixed(2)),
+        totalGeneral: parseFloat((totalEfectivo + totalTarjeta).toFixed(2)),
+        notasCanceladas,
+        montoNotasCanceladas: parseFloat(montoNotasCanceladas.toFixed(2)),
+        primerFolio: ventasValidas.length > 0 ? ventasValidas[0].folio : 'N/A',
+        ultimoFolio: ventasValidas.length > 0 ? ventasValidas[ventasValidas.length - 1].folio : 'N/A',
+        ventasDetalle
+      };
+      
+      console.log('Resumen calculado:', resumen);
+      
+      return { success: true, data: resumen };
+      
+    } catch (error) {
+      console.error('Error obteniendo resumen de ventas:', error);
+      return { success: false, error: error.message };
+    }
   });
 
   console.log('IPC handlers configurados (versión de desarrollo)');

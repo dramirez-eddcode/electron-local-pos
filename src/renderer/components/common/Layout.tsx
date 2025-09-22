@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../store/authStore';
 import Logo from './Logo';
 
@@ -7,6 +8,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
   const { 
     user, 
     sucursal, 
@@ -26,14 +28,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  const currentTime = new Date().toLocaleString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  const currentTime = useMemo(() => {
+    return new Date().toLocaleString('es-ES', {
+      weekday: 'long',
+      year: 'numeric', 
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }, []); // Solo calcular una vez al montar
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -46,13 +50,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Logo size="medium" variant="horizontal" showText={false} />
               
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="text-2xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer"
+                >
                   Sistema POS
-                </h1>
+                </button>
                 <p className="text-sm text-gray-600">
                   {getSucursalName()}
                 </p>
               </div>
+              
+              {/* Botón Home explícito */}
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="bg-blue-100 text-blue-700 px-3 py-2 rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-2"
+                title="Ir al Dashboard Principal"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span className="font-medium">Dashboard</span>
+              </button>
             </div>
 
             {/* Centro - Información del sistema */}
@@ -96,6 +115,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                     
                     <div className="p-1">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          navigate('/dashboard');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                      >
+                        🏠 Ir al Dashboard
+                      </button>
+                      
                       <button
                         onClick={() => {
                           setShowUserMenu(false);

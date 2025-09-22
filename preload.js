@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelSale: (saleId, reason) => ipcRenderer.invoke('sale:cancel', saleId, reason),
   getSaleByFolio: (folio) => ipcRenderer.invoke('sale:getByFolio', folio),
   getDailySales: (date) => ipcRenderer.invoke('sale:getDaily', date),
+  
+  // POS - Nuevos métodos
+  procesarVenta: (ventaData) => ipcRenderer.invoke('pos:procesarVenta', ventaData),
+  getResumenVentas: (params) => ipcRenderer.invoke('pos:getResumenVentas', params),
 
   // Configuración
   getSucursal: () => ipcRenderer.invoke('config:getSucursal'),

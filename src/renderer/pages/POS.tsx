@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../store/authStore';
 import { prepareTicketData } from '../utils/logoUtils';
 import type { Producto, ItemCarrito } from '../../shared/types/index.js';
@@ -11,10 +11,94 @@ const POS: React.FC = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [tipoPago, setTipoPago] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
   const [efectivo, setEfectivo] = useState('');
   const [cambio, setCambio] = useState(0);
+  const [procesandoVenta, setProcesandoVenta] = useState(false);
   
   const inputBusquedaRef = useRef<HTMLInputElement>(null);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  
+  // Función para limpiar todos los timeouts
+  const limpiarTimeouts = useCallback(() => {
+    timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    timeoutsRef.current = [];
+  }, []);
+  
+  // Función optimizada para enfocar input
+  const enfocarInput = useCallback(() => {
+    // Limpiar timeouts anteriores
+    limpiarTimeouts();
+    
+    const doFocus = () => {
+      if (inputBusquedaRef.current && document.body.contains(inputBusquedaRef.current)) {
+        try {
+          inputBusquedaRef.current.focus();
+          inputBusquedaRef.current.select();
+        } catch (error) {
+          console.warn('Error enfocando input:', error);
+        }
+      }
+    };
+    
+    // Un solo timeout con verificación
+    const timeout = setTimeout(() => {
+      doFocus();
+      // Verificar una vez más
+      const checkTimeout = setTimeout(() => {
+        if (document.activeElement !== inputBusquedaRef.current) {
+          doFocus();
+        }
+      }, 100);
+      timeoutsRef.current.push(checkTimeout);
+    }, 100);
+    
+    timeoutsRef.current.push(timeout);
+  }, [limpiarTimeouts]);
+  
+  // Limpiar timeouts al desmontar componente
+  useEffect(() => {
+    return () => {
+      limpiarTimeouts();
+      // Limpieza adicional
+      setProcesandoVenta(false);
+      setShowPaymentModal(false);
+    };
+  }, [limpiarTimeouts]);
+  
+  // Función para limpiar todo el estado al cambiar de página
+  const limpiarTodoElEstado = useCallback(() => {
+    limpiarTimeouts();
+    setProcesandoVenta(false);
+    setShowPaymentModal(false);
+    setCarrito([]);
+    setBusqueda('');
+    setProductos([]);
+    setEfectivo('');
+    setTipoPago('EFECTIVO');
+    setCambio(0);
+  }, [limpiarTimeouts]);
+  
+  // Limpiar estado cuando el componente pierde visibilidad
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        limpiarTimeouts();
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      limpiarTodoElEstado();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [limpiarTodoElEstado]);
 
   // Calcular total cuando cambie el carrito
   useEffect(() => {
@@ -22,11 +106,15 @@ const POS: React.FC = () => {
     setTotal(nuevoTotal);
   }, [carrito]);
 
-  // Calcular cambio cuando cambie efectivo
+  // Calcular cambio cuando cambie efectivo (solo para efectivo)
   useEffect(() => {
-    const efectivoNum = parseFloat(efectivo) || 0;
-    setCambio(efectivoNum - total);
-  }, [efectivo, total]);
+    if (tipoPago === 'EFECTIVO') {
+      const efectivoNum = parseFloat(efectivo) || 0;
+      setCambio(efectivoNum - total);
+    } else {
+      setCambio(0);
+    }
+  }, [efectivo, total, tipoPago]);
 
   // Focus automático en búsqueda
   useEffect(() => {
@@ -139,48 +227,73 @@ const POS: React.FC = () => {
     setCarrito(carrito.filter(item => item.ID_PRODUCTO !== ID_PRODUCTO));
   };
 
-  const limpiarCarrito = () => {
+  const limpiarCarrito = useCallback(() => {
     setCarrito([]);
     setBusqueda('');
     setProductos([]);
-    if (inputBusquedaRef.current) {
-      inputBusquedaRef.current.focus();
-    }
-  };
+    enfocarInput();
+  }, [enfocarInput]);
 
   const procesarVenta = async () => {
-    if (carrito.length === 0) return;
+    if (carrito.length === 0 || procesandoVenta) return;
 
-    const efectivoNum = parseFloat(efectivo) || 0;
-    if (efectivoNum < total) {
-      alert('El efectivo recibido es insuficiente');
-      return;
+    // Validar pago según tipo
+    if (tipoPago === 'EFECTIVO') {
+      const efectivoNum = parseFloat(efectivo) || 0;
+      if (efectivoNum < total) {
+        alert('El efectivo recibido es insuficiente');
+        return;
+      }
+    } else if (tipoPago === 'TARJETA') {
+      // Para tarjeta no necesitamos validar efectivo
+      if (!confirm('¿Confirma que el pago con tarjeta fue exitoso?')) {
+        return;
+      }
     }
+
+    setProcesandoVenta(true);
 
     try {
       // Simular procesamiento de venta
       const ventaData = {
         items: carrito,
         total,
-        efectivo: efectivoNum,
-        cambio,
+        tipoPago,
+        efectivo: tipoPago === 'EFECTIVO' ? parseFloat(efectivo) || 0 : 0,
+        cambio: tipoPago === 'EFECTIVO' ? cambio : 0,
         usuario: user?.NOMBRE_USUARIO,
-        sucursal: sucursal?.NOMBRE_SUCURSAL
+        sucursal: sucursal?.NOMBRE_SUCURSAL,
+        fecha: new Date().toISOString()
       };
 
       console.log('Procesando venta:', ventaData);
+
+      // Guardar venta en la base de datos
+      const ventaResult = await window.electronAPI.procesarVenta(ventaData);
+      
+      if (!ventaResult.success) {
+        alert('Error guardando la venta: ' + ventaResult.error);
+        return;
+      }
+
+      console.log('Venta guardada con folio:', ventaResult.folio);
 
       // Preparar datos del ticket con logo
       const baseTicketData = {
         storeName: sucursal?.RAZON_SOCIAL || 'FARMACIAS MS',
         storeAddress: sucursal?.DIRECCION || 'Dirección de la farmacia',
-        ticketNumber: Date.now().toString().slice(-6),
+        ticketNumber: ventaResult.folio,
         items: carrito.map(item => ({
           name: item.NOMBRE_PRODUCTO,
           quantity: item.cantidad,
           price: item.precio
         })),
         total,
+        tipoPago,
+        efectivoRecibido: tipoPago === 'EFECTIVO' ? parseFloat(efectivo) || 0 : null,
+        cambio: tipoPago === 'EFECTIVO' ? cambio : null,
+        usuario: user?.NOMBRE_USUARIO,
+        sucursal: sucursal?.NOMBRE_SUCURSAL,
         date: new Date().toLocaleString('es-ES')
       };
 
@@ -189,15 +302,25 @@ const POS: React.FC = () => {
       const printResult = await window.electronAPI.printTicket(ticketData);
       
       if (printResult.success) {
-        alert('Venta procesada correctamente');
-        limpiarCarrito();
+        // Primero cerrar el modal y limpiar estados
         setShowPaymentModal(false);
         setEfectivo('');
+        setTipoPago('EFECTIVO');
+        setProcesandoVenta(false);
+        
+        // Luego mostrar el mensaje y limpiar carrito
+        alert('Venta procesada correctamente');
+        limpiarCarrito();
+        
+        // Usar función optimizada para enfocar
+        enfocarInput();
       } else {
+        setProcesandoVenta(false);
         alert('Error al imprimir ticket: ' + printResult.error);
       }
 
     } catch (error) {
+      setProcesandoVenta(false);
       console.error('Error procesando venta:', error);
       alert('Error procesando la venta');
     }
@@ -415,7 +538,7 @@ const POS: React.FC = () => {
       {/* Modal de Pago */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
+          <div className={`bg-white rounded-lg p-6 w-96 ${procesandoVenta ? 'opacity-90' : ''}`}>
             <h3 className="text-lg font-bold mb-4">Procesar Pago</h3>
             
             <div className="space-y-4">
@@ -426,26 +549,107 @@ const POS: React.FC = () => {
                 </div>
               </div>
 
+              {/* Selector de tipo de pago */}
               <div>
-                <label className="block text-sm font-medium mb-1">Efectivo recibido:</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  value={efectivo}
-                  onChange={(e) => setEfectivo(e.target.value)}
-                  placeholder="0.00"
-                  autoFocus
-                />
+                <label className="block text-sm font-medium mb-2">Tipo de pago:</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setTipoPago('EFECTIVO')}
+                    className={`p-3 border rounded-lg text-center transition-colors ${
+                      tipoPago === 'EFECTIVO'
+                        ? 'bg-green-50 border-green-500 text-green-700'
+                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">💵</div>
+                    <div className="font-medium">Efectivo</div>
+                  </button>
+                  <button
+                    onClick={() => setTipoPago('TARJETA')}
+                    className={`p-3 border rounded-lg text-center transition-colors ${
+                      tipoPago === 'TARJETA'
+                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="text-2xl mb-1">💳</div>
+                    <div className="font-medium">Tarjeta</div>
+                  </button>
+                </div>
               </div>
 
-              {efectivo && (
+              {/* Campo de efectivo - solo para pago en efectivo */}
+              {tipoPago === 'EFECTIVO' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Efectivo recibido:</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                      efectivo && parseFloat(efectivo) >= total 
+                        ? 'border-green-500 bg-green-50' 
+                        : efectivo && parseFloat(efectivo) < total 
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-300'
+                    }`}
+                    value={efectivo}
+                    onChange={(e) => setEfectivo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !procesandoVenta) {
+                        const efectivoNum = parseFloat(efectivo) || 0;
+                        if (efectivoNum > 0 && efectivoNum >= total) {
+                          procesarVenta();
+                        }
+                      }
+                    }}
+                    placeholder="0.00"
+                    autoFocus
+                  />
+                  {/* Indicador visual del estado */}
+                  {efectivo && (
+                    <div className="mt-1 text-sm">
+                      {parseFloat(efectivo) >= total ? (
+                        <span className="text-green-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Presiona Enter para procesar
+                        </span>
+                      ) : (
+                        <span className="text-red-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Monto insuficiente
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Cambio - solo para efectivo */}
+              {tipoPago === 'EFECTIVO' && efectivo && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Cambio:</label>
                   <div className={`text-xl font-bold ${
                     cambio >= 0 ? 'text-blue-600' : 'text-red-600'
                   }`}>
                     ${cambio.toFixed(2)}
+                  </div>
+                </div>
+              )}
+
+              {/* Instrucciones para tarjeta */}
+              {tipoPago === 'TARJETA' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center space-x-2 text-blue-800">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium">
+                      Use la terminal de tarjeta para procesar el pago de ${total.toFixed(2)}
+                    </span>
                   </div>
                 </div>
               )}
@@ -456,6 +660,8 @@ const POS: React.FC = () => {
                 onClick={() => {
                   setShowPaymentModal(false);
                   setEfectivo('');
+                  setTipoPago('EFECTIVO');
+                  enfocarInput();
                 }}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
               >
@@ -463,10 +669,30 @@ const POS: React.FC = () => {
               </button>
               <button
                 onClick={procesarVenta}
-                disabled={!efectivo || parseFloat(efectivo) < total}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                disabled={
+                  procesandoVenta ||
+                  (tipoPago === 'EFECTIVO' 
+                    ? !efectivo || parseFloat(efectivo) < total
+                    : false)
+                }
+                className={`px-4 py-2 text-white rounded transition-colors font-medium ${
+                  procesandoVenta 
+                    ? 'bg-orange-500 cursor-wait'
+                    : tipoPago === 'EFECTIVO' && efectivo && parseFloat(efectivo) >= total
+                      ? 'bg-green-600 hover:bg-green-700 animate-pulse'
+                      : tipoPago === 'TARJETA'
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-gray-300 cursor-not-allowed'
+                }`}
               >
-                Procesar Venta
+                {procesandoVenta 
+                  ? '⏳ Procesando...'
+                  : tipoPago === 'EFECTIVO' 
+                    ? (efectivo && parseFloat(efectivo) >= total 
+                        ? '✓ Procesar Venta (Enter)' 
+                        : 'Procesar Venta')
+                    : 'Confirmar Pago con Tarjeta'
+                }
               </button>
             </div>
           </div>

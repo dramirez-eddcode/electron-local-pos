@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import POS from './pages/POS';
 import Admin from './pages/Admin';
+import CorteCaja from './pages/CorteCaja';
 import Layout from './components/common/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
@@ -163,6 +164,17 @@ function App() {
               <ProtectedRoute requiredPermission="usuarios">
                 <Layout>
                   <Admin />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/corte-caja" 
+            element={
+              <ProtectedRoute requiredPermission="corte_caja">
+                <Layout>
+                  <CorteCaja />
                 </Layout>
               </ProtectedRoute>
             } 

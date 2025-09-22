@@ -31,6 +31,10 @@ export interface ElectronAPI {
   cancelSale: (saleId: number, reason: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   getSaleByFolio: (folio: string) => Promise<{ success: boolean; data?: any; error?: string }>;
   getDailySales: (date: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+  
+  // POS - Nuevos métodos
+  procesarVenta: (ventaData: any) => Promise<{ success: boolean; folio?: string; message?: string; error?: string }>;
+  getResumenVentas: (params: { fechaInicio: string; fechaFin: string }) => Promise<{ success: boolean; data?: any; error?: string }>;
 
   // Configuración
   getSucursal: () => Promise<{ success: boolean; data?: any; error?: string }>;
