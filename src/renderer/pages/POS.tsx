@@ -3,12 +3,18 @@ import { useAuth } from '../store/authStore';
 import { prepareTicketData } from '../utils/logoUtils';
 import type { Producto, ItemCarrito } from '../../shared/types/index.js';
 
+// Constante para la tasa de IVA en México
+const TASA_IVA = 0.16;
+
 const POS: React.FC = () => {
   const { user, sucursal } = useAuth();
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
+  const [subtotal, setSubtotal] = useState(0);
+  const [totalIVA, setTotalIVA] = useState(0);
   const [total, setTotal] = useState(0);
   const [busqueda, setBusqueda] = useState('');
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [tipoPago, setTipoPago] = useState<'EFECTIVO' | 'TARJETA'>('EFECTIVO');
@@ -16,9 +22,10 @@ const POS: React.FC = () => {
   const [cambio, setCambio] = useState(0);
   const [procesandoVenta, setProcesandoVenta] = useState(false);
   const [notificacion, setNotificacion] = useState<string | null>(null);
-  
+
   const inputBusquedaRef = useRef<HTMLInputElement>(null);
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const productListRef = useRef<HTMLDivElement>(null);
 
   // Función para enfocar input inmediatamente
   const enfocarInput = useCallback(() => {
@@ -48,9 +55,14 @@ const POS: React.FC = () => {
     };
   }, []);
 
-  // Calcular total cuando cambie el carrito
+  // Calcular totales cuando cambie el carrito
   useEffect(() => {
-    const nuevoTotal = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
+    const nuevoSubtotal = carrito.reduce((sum, item) => sum + item.subtotal, 0);
+    const nuevoIVA = carrito.reduce((sum, item) => sum + item.iva, 0);
+    const nuevoTotal = carrito.reduce((sum, item) => sum + item.totalConIVA, 0);
+
+    setSubtotal(nuevoSubtotal);
+    setTotalIVA(nuevoIVA);
     setTotal(nuevoTotal);
   }, [carrito]);
 
@@ -81,6 +93,7 @@ const POS: React.FC = () => {
   const buscarProductos = async (termino: string) => {
     if (!termino.trim()) {
       setProductos([]);
+      setSelectedIndex(0);
       return;
     }
 
@@ -113,57 +126,183 @@ const POS: React.FC = () => {
         }));
 
         setProductos(productosEncontrados);
+        setSelectedIndex(0); // Reset al primer producto
       } else {
         console.warn('No se encontraron productos:', result.error);
         setProductos([]);
+        setSelectedIndex(0);
       }
     } catch (error) {
       console.error('Error buscando productos:', error);
       setProductos([]);
+      setSelectedIndex(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const agregarAlCarrito = (producto: Producto) => {
+  // Función para hacer scroll al producto seleccionado
+  const scrollToSelected = useCallback((index: number) => {
+    if (productListRef.current) {
+      const items = productListRef.current.children;
+      const selectedItem = items[index] as HTMLElement;
+      if (selectedItem) {
+        selectedItem.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest'
+        });
+      }
+    }
+  }, []);
+
+  const agregarAlCarrito = (producto: Producto, cantidadEspecifica?: number) => {
+    const cantidadAAgregar = cantidadEspecifica || 1;
     const itemExistente = carrito.find(item => item.ID_PRODUCTO === producto.ID_PRODUCTO);
-    
+
+    // Calcular cuánto ya tenemos en el carrito
+    const cantidadEnCarrito = itemExistente ? itemExistente.cantidad : 0;
+    const cantidadTotal = cantidadEnCarrito + cantidadAAgregar;
+
+    // VALIDACIÓN CRÍTICA: Verificar stock disponible
+    if (cantidadTotal > producto.STOCK_ACTUAL) {
+      const disponible = producto.STOCK_ACTUAL - cantidadEnCarrito;
+      if (disponible <= 0) {
+        setNotificacion(`❌ Sin stock disponible de ${producto.NOMBRE_PRODUCTO}`);
+      } else {
+        setNotificacion(
+          `⚠️ Stock insuficiente. Solo quedan ${disponible} unidad(es) disponible(s) de ${producto.NOMBRE_PRODUCTO}`
+        );
+      }
+      setTimeout(() => setNotificacion(null), 4000);
+
+      // Limpiar búsqueda y enfocar
+      setBusqueda('');
+      setProductos([]);
+      setSelectedIndex(0);
+      requestAnimationFrame(() => enfocarInput());
+      return; // NO AGREGAR AL CARRITO
+    }
+
+    // Validación adicional: Stock debe ser mayor a 0
+    if (producto.STOCK_ACTUAL <= 0) {
+      setNotificacion(`❌ Producto sin stock: ${producto.NOMBRE_PRODUCTO}`);
+      setTimeout(() => setNotificacion(null), 3000);
+
+      // Limpiar búsqueda y enfocar
+      setBusqueda('');
+      setProductos([]);
+      setSelectedIndex(0);
+      requestAnimationFrame(() => enfocarInput());
+      return; // NO AGREGAR AL CARRITO
+    }
+
+    // Si pasa todas las validaciones, agregar al carrito
     if (itemExistente) {
-      setCarrito(carrito.map(item =>
-        item.ID_PRODUCTO === producto.ID_PRODUCTO
-          ? { ...item, cantidad: item.cantidad + 1 }
-          : item
-      ));
+      setCarrito(carrito.map(item => {
+        if (item.ID_PRODUCTO === producto.ID_PRODUCTO) {
+          const nuevaCantidad = item.cantidad + cantidadAAgregar;
+          const subtotalItem = item.precio * nuevaCantidad;
+          const ivaItem = item.aplicaIVA ? subtotalItem * TASA_IVA : 0;
+          const totalItem = subtotalItem + ivaItem;
+
+          return {
+            ...item,
+            cantidad: nuevaCantidad,
+            subtotal: subtotalItem,
+            iva: ivaItem,
+            totalConIVA: totalItem
+          };
+        }
+        return item;
+      }));
     } else {
+      const aplicaIVA = producto.IVA_PRODUCTO === 1;
+      const subtotalItem = producto.PRECIO_VENTA * cantidadAAgregar;
+      const ivaItem = aplicaIVA ? subtotalItem * TASA_IVA : 0;
+      const totalItem = subtotalItem + ivaItem;
+
       const nuevoItem: ItemCarrito = {
         ID_PRODUCTO: producto.ID_PRODUCTO,
         CODIGO_BARRAS: producto.CODIGO_BARRAS,
         NOMBRE_PRODUCTO: producto.NOMBRE_PRODUCTO,
         precio: producto.PRECIO_VENTA,
-        cantidad: 1,
-        subtotal: producto.PRECIO_VENTA
+        cantidad: cantidadAAgregar,
+        subtotal: subtotalItem,
+        aplicaIVA: aplicaIVA,
+        iva: ivaItem,
+        totalConIVA: totalItem
       };
       setCarrito([...carrito, nuevoItem]);
     }
-    
+
+    // Mostrar notificación de producto agregado
+    const stockRestante = producto.STOCK_ACTUAL - cantidadTotal;
+    setNotificacion(
+      `✅ ${cantidadAAgregar}x ${producto.NOMBRE_PRODUCTO} agregado (Quedan ${stockRestante} en stock)`
+    );
+    setTimeout(() => setNotificacion(null), 2500);
+
     // Limpiar búsqueda y enfocar
     setBusqueda('');
     setProductos([]);
+    setSelectedIndex(0);
     // Focus inmediato después de agregar producto
     requestAnimationFrame(() => enfocarInput());
   };
 
-  const modificarCantidad = (ID_PRODUCTO: number, nuevaCantidad: number) => {
+  const modificarCantidad = async (ID_PRODUCTO: number, nuevaCantidad: number) => {
     if (nuevaCantidad <= 0) {
       eliminarDelCarrito(ID_PRODUCTO);
       return;
     }
 
-    setCarrito(carrito.map(item =>
-      item.ID_PRODUCTO === ID_PRODUCTO
-        ? { ...item, cantidad: nuevaCantidad, subtotal: item.precio * nuevaCantidad }
-        : item
-    ));
+    // VALIDACIÓN CRÍTICA: Verificar stock antes de incrementar
+    const itemEnCarrito = carrito.find(item => item.ID_PRODUCTO === ID_PRODUCTO);
+    if (!itemEnCarrito) return;
+
+    // Buscar el producto actual para obtener stock actualizado
+    try {
+      const result = await window.electronAPI.invoke('product:search', {
+        query: itemEnCarrito.CODIGO_BARRAS,
+        sucursalId: sucursal?.SUCURSAL_ID
+      });
+
+      if (result.success && result.data && result.data.length > 0) {
+        const productoActual = result.data[0];
+        const stockDisponible = productoActual.CANTIDAD_PRODUCTO;
+
+        // Verificar si la nueva cantidad excede el stock
+        if (nuevaCantidad > stockDisponible) {
+          setNotificacion(
+            `⚠️ Stock insuficiente. Solo hay ${stockDisponible} unidad(es) disponible(s) de ${itemEnCarrito.NOMBRE_PRODUCTO}`
+          );
+          setTimeout(() => setNotificacion(null), 4000);
+          return; // NO PERMITIR el cambio
+        }
+
+        // Si pasa la validación, actualizar la cantidad recalculando IVA
+        setCarrito(carrito.map(item => {
+          if (item.ID_PRODUCTO === ID_PRODUCTO) {
+            const subtotalItem = item.precio * nuevaCantidad;
+            const ivaItem = item.aplicaIVA ? subtotalItem * TASA_IVA : 0;
+            const totalItem = subtotalItem + ivaItem;
+
+            return {
+              ...item,
+              cantidad: nuevaCantidad,
+              subtotal: subtotalItem,
+              iva: ivaItem,
+              totalConIVA: totalItem
+            };
+          }
+          return item;
+        }));
+      }
+    } catch (error) {
+      console.error('Error verificando stock:', error);
+      setNotificacion('❌ Error al verificar stock disponible');
+      setTimeout(() => setNotificacion(null), 3000);
+    }
   };
 
   const eliminarDelCarrito = (ID_PRODUCTO: number) => {
@@ -198,9 +337,11 @@ const POS: React.FC = () => {
     setProcesandoVenta(true);
 
     try {
-      // Simular procesamiento de venta
+      // Preparar datos de venta con desglose de IVA
       const ventaData = {
         items: carrito,
+        subtotal,
+        iva: totalIVA,
         total,
         tipoPago,
         efectivo: tipoPago === 'EFECTIVO' ? parseFloat(efectivo) || 0 : 0,
@@ -222,7 +363,7 @@ const POS: React.FC = () => {
 
       console.log('Venta guardada con folio:', ventaResult.folio);
 
-      // Preparar datos del ticket con logo
+      // Preparar datos del ticket con logo y desglose de IVA
       const baseTicketData = {
         storeName: sucursal?.RAZON_SOCIAL || 'FARMACIAS MS',
         storeAddress: sucursal?.DIRECCION || 'Dirección de la farmacia',
@@ -230,8 +371,11 @@ const POS: React.FC = () => {
         items: carrito.map(item => ({
           name: item.NOMBRE_PRODUCTO,
           quantity: item.cantidad,
-          price: item.precio
+          price: item.precio,
+          aplicaIVA: item.aplicaIVA
         })),
+        subtotal,
+        iva: totalIVA,
         total,
         tipoPago,
         efectivoRecibido: tipoPago === 'EFECTIVO' ? parseFloat(efectivo) || 0 : null,
@@ -302,16 +446,114 @@ const POS: React.FC = () => {
               <input
                 ref={inputBusquedaRef}
                 type="text"
-                placeholder="Buscar por código, nombre o PLM..."
+                placeholder="Buscar producto..."
                 className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 value={busqueda}
                 onChange={(e) => {
                   setBusqueda(e.target.value);
                   buscarProductos(e.target.value);
                 }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && productos.length > 0) {
-                    agregarAlCarrito(productos[0]);
+                onKeyDown={async (e) => {
+                  // Autocompletar código con Tab
+                  if (e.key === 'Tab' && productos.length > 0) {
+                    e.preventDefault();
+                    const productoSeleccionado = productos[selectedIndex];
+                    setBusqueda(productoSeleccionado.CODIGO_BARRAS + '*');
+                    setProductos([]); // Limpiar lista de productos
+                    // Posicionar cursor al final para escribir la cantidad
+                    setTimeout(() => {
+                      if (inputBusquedaRef.current) {
+                        inputBusquedaRef.current.focus();
+                        inputBusquedaRef.current.setSelectionRange(
+                          inputBusquedaRef.current.value.length,
+                          inputBusquedaRef.current.value.length
+                        );
+                      }
+                    }, 0);
+                    return;
+                  }
+
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+
+                    // Detectar patrón CODIGO*CANTIDAD
+                    const match = busqueda.match(/^(.+)\*(\d+)$/);
+
+                    if (match) {
+                      const [, codigo, cantidadStr] = match;
+                      const cantidad = parseInt(cantidadStr, 10);
+
+                      if (cantidad > 0 && cantidad <= 999) {
+                        // Buscar el producto por código exacto
+                        setLoading(true);
+                        try {
+                          const result = await window.electronAPI.invoke('product:search', {
+                            query: codigo.trim(),
+                            sucursalId: sucursal?.SUCURSAL_ID
+                          });
+
+                          if (result.success && result.data && result.data.length > 0) {
+                            const productoData = result.data[0];
+                            const producto: Producto = {
+                              ID_PRODUCTO: productoData.ID_PRODUCTO,
+                              CODIGO_BARRAS: productoData.CODIGO_PRODUCTO,
+                              CODIGO_PLM: productoData.CODIGO_PRODUCTO,
+                              NOMBRE_PRODUCTO: productoData.NOMBRE_PRODUCTO,
+                              DESCRIPCION: productoData.SUSTANCIA_PRODUCTO || 'Sin descripción',
+                              PRECIO_VENTA: productoData.PRECIO_PRODUCTO,
+                              PRECIO_COMPRA: productoData.COSTO_PRODUCTO || 0,
+                              STOCK_ACTUAL: productoData.CANTIDAD_PRODUCTO,
+                              STOCK_MINIMO: productoData.MIN_PRODUCTO || 0,
+                              IVA_PRODUCTO: productoData.IVA_PRODUCTO || 0,
+                              ACTIVO: productoData.ACTIVO,
+                              SUCURSAL_ID: productoData.SUCURSAL_ID,
+                              FECHA_CREACION: new Date(productoData.FECHA_CREACION),
+                              FECHA_ACTUALIZACION: new Date(productoData.FECHA_MODIFICACION),
+                              SINCRONIZADO: productoData.SINCRONIZADO,
+                              FECHA_SINCRONIZACION: productoData.FECHA_SINCRONIZACION ? new Date(productoData.FECHA_SINCRONIZACION) : undefined
+                            };
+
+                            // La validación de stock se hace en agregarAlCarrito
+                            // que considera lo que ya está en el carrito
+                            agregarAlCarrito(producto, cantidad);
+                          } else {
+                            setNotificacion('❌ Producto no encontrado');
+                            setTimeout(() => setNotificacion(null), 3000);
+                          }
+                        } catch (error) {
+                          console.error('Error buscando producto:', error);
+                          setNotificacion('❌ Error al buscar producto');
+                          setTimeout(() => setNotificacion(null), 3000);
+                        } finally {
+                          setLoading(false);
+                        }
+                      } else {
+                        setNotificacion('❌ Cantidad inválida (1-999)');
+                        setTimeout(() => setNotificacion(null), 3000);
+                      }
+                      return;
+                    }
+
+                    // Comportamiento normal si hay productos en la lista
+                    if (productos.length > 0) {
+                      agregarAlCarrito(productos[selectedIndex]);
+                    }
+                    return;
+                  }
+
+                  // Navegación con flechas solo si hay productos
+                  if (productos.length === 0) return;
+
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const newIndex = selectedIndex < productos.length - 1 ? selectedIndex + 1 : selectedIndex;
+                    setSelectedIndex(newIndex);
+                    scrollToSelected(newIndex);
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    const newIndex = selectedIndex > 0 ? selectedIndex - 1 : 0;
+                    setSelectedIndex(newIndex);
+                    scrollToSelected(newIndex);
                   }
                 }}
               />
@@ -321,60 +563,101 @@ const POS: React.FC = () => {
                 </svg>
               </div>
             </div>
+            <div className="mt-1 text-xs text-gray-500 flex items-center space-x-4">
+              <span>💡 Tip: ⬆️⬇️ navegar</span>
+              <span>|</span>
+              <span>Tab autocompletar</span>
+              <span>|</span>
+              <span>CODIGO*CANTIDAD (ej: 750110*3)</span>
+            </div>
           </div>
 
           {/* Resultados de búsqueda */}
-          <div className="bg-white rounded-lg shadow-sm border max-h-96 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-sm border max-h-96 overflow-y-auto" ref={productListRef}>
             {loading && (
               <div className="p-4 text-center text-gray-500">
                 Buscando productos...
               </div>
             )}
-            
+
             {!loading && productos.length === 0 && busqueda && (
               <div className="p-4 text-center text-gray-500">
                 No se encontraron productos
               </div>
             )}
-            
+
             {!loading && productos.length === 0 && !busqueda && (
               <div className="p-4 text-center text-gray-400">
                 Escriba para buscar productos
               </div>
             )}
 
-            {productos.map((producto, index) => (
-              <div
-                key={producto.ID_PRODUCTO}
-                className={`p-3 border-b border-gray-100 hover:bg-blue-50 cursor-pointer ${
-                  index === 0 ? 'bg-blue-50' : ''
-                }`}
-                onClick={() => agregarAlCarrito(producto)}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900">{producto.NOMBRE_PRODUCTO}</h3>
-                    <p className="text-sm text-gray-600">{producto.DESCRIPCION}</p>
-                    <div className="flex items-center space-x-4 mt-1">
-                      <span className="text-xs text-gray-500">Código: {producto.CODIGO_BARRAS}</span>
-                      <span className="text-xs text-gray-500">PLM: {producto.CODIGO_PLM}</span>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        producto.STOCK_ACTUAL > producto.STOCK_MINIMO 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+            {productos.map((producto, index) => {
+              // Calcular cuánto ya está en el carrito
+              const enCarrito = carrito.find(item => item.ID_PRODUCTO === producto.ID_PRODUCTO);
+              const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+              const stockDisponible = producto.STOCK_ACTUAL - cantidadEnCarrito;
+              const sinStock = stockDisponible <= 0;
+
+              return (
+                <div
+                  key={producto.ID_PRODUCTO}
+                  className={`p-3 border-b border-gray-100 transition-colors ${
+                    sinStock
+                      ? 'bg-gray-100 cursor-not-allowed opacity-60'
+                      : index === selectedIndex
+                      ? 'bg-blue-100 border-l-4 border-l-blue-500 cursor-pointer'
+                      : 'hover:bg-blue-50 cursor-pointer'
+                  }`}
+                  onClick={() => !sinStock && agregarAlCarrito(producto)}
+                  onMouseEnter={() => !sinStock && setSelectedIndex(index)}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className={`font-medium ${
+                        sinStock
+                          ? 'text-gray-500 line-through'
+                          : index === selectedIndex
+                          ? 'text-blue-900'
+                          : 'text-gray-900'
                       }`}>
-                        Stock: {producto.STOCK_ACTUAL}
-                      </span>
+                        {producto.NOMBRE_PRODUCTO}
+                      </h3>
+                      <p className="text-sm text-gray-600">{producto.DESCRIPCION}</p>
+                      <div className="flex items-center space-x-4 mt-1">
+                        <span className="text-xs text-gray-500">Código: {producto.CODIGO_BARRAS}</span>
+                        <span className="text-xs text-gray-500">PLM: {producto.CODIGO_PLM}</span>
+                        {cantidadEnCarrito > 0 && (
+                          <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-800">
+                            {cantidadEnCarrito} en carrito
+                          </span>
+                        )}
+                        <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                          sinStock
+                            ? 'bg-red-200 text-red-900'
+                            : stockDisponible <= producto.STOCK_MINIMO
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {sinStock ? 'SIN STOCK' : `Disponible: ${stockDisponible}`}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-green-600">
-                      ${producto.PRECIO_VENTA.toFixed(2)}
+                    <div className="text-right">
+                      <div className={`text-lg font-bold ${
+                        sinStock
+                          ? 'text-gray-400'
+                          : index === selectedIndex
+                          ? 'text-blue-700'
+                          : 'text-green-600'
+                      }`}>
+                        ${producto.PRECIO_VENTA.toFixed(2)}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -395,11 +678,9 @@ const POS: React.FC = () => {
           <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
             {carrito.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
-                <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6 0a2 2 0 100-4 2 2 0 000 4zm-6 0a2 2 0 100-4 2 2 0 000 4z" />
-                </svg>
-                <p>Carrito vacío</p>
-                <p className="text-sm">Busque y agregue productos</p>
+                <div className="text-6xl mb-4">🛒</div>
+                <p className="text-lg font-medium text-gray-600">Carrito vacío</p>
+                <p className="text-sm mt-1">Busque y agregue productos</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
@@ -438,11 +719,16 @@ const POS: React.FC = () => {
                       
                       <div className="text-right">
                         <div className="text-sm text-gray-600">
-                          ${item.precio.toFixed(2)} c/u
+                          ${item.precio.toFixed(2)} c/u {item.aplicaIVA && <span className="text-xs text-blue-600">(+IVA)</span>}
                         </div>
                         <div className="font-bold text-green-600">
-                          ${item.subtotal.toFixed(2)}
+                          ${item.totalConIVA.toFixed(2)}
                         </div>
+                        {item.aplicaIVA && (
+                          <div className="text-xs text-gray-500">
+                            IVA: ${item.iva.toFixed(2)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -453,8 +739,18 @@ const POS: React.FC = () => {
 
           {/* Total y acciones */}
           <div className="mt-4 space-y-3">
-            <div className="bg-gray-100 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
+            <div className="bg-gray-100 p-4 rounded-lg space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">${subtotal.toFixed(2)}</span>
+              </div>
+              {totalIVA > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">IVA (16%):</span>
+                  <span className="font-medium">${totalIVA.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-300">
                 <span className="text-lg font-medium">Total:</span>
                 <span className="text-2xl font-bold text-green-600">
                   ${total.toFixed(2)}
@@ -488,10 +784,22 @@ const POS: React.FC = () => {
             <h3 className="text-lg font-bold mb-4">Procesar Pago</h3>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Total a pagar:</label>
-                <div className="text-2xl font-bold text-green-600">
-                  ${total.toFixed(2)}
+              <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-medium">${subtotal.toFixed(2)}</span>
+                </div>
+                {totalIVA > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">IVA (16%):</span>
+                    <span className="font-medium">${totalIVA.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                  <span className="text-base font-medium">Total a pagar:</span>
+                  <span className="text-2xl font-bold text-green-600">
+                    ${total.toFixed(2)}
+                  </span>
                 </div>
               </div>
 

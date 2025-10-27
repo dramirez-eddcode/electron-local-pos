@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { useAuthStore } from '../store/authStore';
 import Logo from '../components/common/Logo';
 
@@ -8,42 +9,59 @@ interface LoginCredentials {
 }
 
 const Login: React.FC = () => {
-  const [credentials, setCredentials] = useState<LoginCredentials>({ 
-    usuario: '', 
-    password: '' 
+  const [credentials, setCredentials] = useState<LoginCredentials>({
+    usuario: '',
+    password: ''
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string>('');
 
   const login = useAuthStore((state) => state.login);
+  const usuarioInputRef = useRef<HTMLInputElement>(null);
+
+  // Enfocar input al montar y después de limpiar
+  const enfocarInput = useCallback(() => {
+    if (usuarioInputRef.current && !isLoading) {
+      requestAnimationFrame(() => {
+        try {
+          usuarioInputRef.current?.focus();
+        } catch (error) {
+          console.warn('Error enfocando input:', error);
+        }
+      });
+    }
+  }, [isLoading]);
+
+  // Focus inicial
+  useEffect(() => {
+    enfocarInput();
+  }, [enfocarInput]);
 
   const handleInputChange = (field: keyof LoginCredentials, value: string) => {
     setCredentials(prev => ({ ...prev, [field]: value }));
-    // Limpiar error cuando el usuario empiece a escribir
-    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!credentials.usuario.trim() || !credentials.password.trim()) {
-      setError('Por favor ingrese usuario y contraseña');
+      toast.error('Por favor ingrese usuario y contraseña');
       return;
     }
 
     setIsLoading(true);
-    setError('');
 
     try {
       const result = await login(credentials);
-      
+
       if (!result.success) {
-        setError(result.error || 'Error de autenticación');
+        toast.error(result.error || 'Error de autenticación');
+      } else {
+        toast.success('¡Bienvenido! Iniciando sesión...');
       }
       // Si es exitoso, el store manejará la redirección
     } catch (error) {
       console.error('Error en login:', error);
-      setError('Error de conexión. Verifique que la aplicación esté funcionando correctamente.');
+      toast.error('Error de conexión. Verifique que la aplicación esté funcionando correctamente.');
     } finally {
       setIsLoading(false);
     }
@@ -72,19 +90,14 @@ const Login: React.FC = () => {
         {/* Formulario */}
         <div className="p-8">
           <h3 className="text-center text-2xl font-bold text-gray-800 mb-6">Iniciar Sesión</h3>
-          
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700 text-sm text-center">{error}</p>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Usuario
               </label>
-              <input 
+              <input
+                ref={usuarioInputRef}
                 type="text"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 placeholder="Ingrese su usuario"
@@ -92,7 +105,6 @@ const Login: React.FC = () => {
                 onChange={(e) => handleInputChange('usuario', e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isLoading}
-                autoFocus
               />
             </div>
             
@@ -131,12 +143,12 @@ const Login: React.FC = () => {
                 )}
               </button>
               
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="px-8 py-3 bg-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-400 transition-all transform hover:scale-105 active:scale-95 shadow-lg"
                 onClick={() => {
                   setCredentials({ usuario: '', password: '' });
-                  setError('');
+                  requestAnimationFrame(() => enfocarInput());
                 }}
                 disabled={isLoading}
               >

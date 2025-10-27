@@ -22,11 +22,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleLogout = async () => {
-    if (confirm('¿Está seguro que desea cerrar sesión?')) {
-      console.log('Iniciando proceso de logout...');
-      await logout();
-      console.log('Logout completado, redirigiendo...');
-    }
+    console.log('Iniciando proceso de logout...');
+    await logout();
+    console.log('Logout completado, redirigiendo...');
+    // Forzar navegación al login después de logout
+    requestAnimationFrame(() => {
+      navigate('/login', { replace: true });
+    });
   };
 
   const currentTime = useMemo(() => {

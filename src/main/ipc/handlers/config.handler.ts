@@ -62,4 +62,28 @@ export class ConfigHandler {
       };
     }
   }
+
+  async updateTicketConfig(event: any, config: {
+    NOMBRE_SUCURSAL: string;
+    RAZON_SOCIAL: string;
+    DIRECCION: string;
+    TELEFONO?: string;
+    RFC?: string;
+    LOGO_PATH?: string;
+  }): Promise<IpcResponse<void>> {
+    try {
+      // Usar el método existente updateSucursal
+      await db.updateSucursal(config);
+      return {
+        success: true,
+        message: 'Configuración del ticket actualizada correctamente'
+      };
+    } catch (error: any) {
+      console.error('Error actualizando configuración de ticket:', error);
+      return {
+        success: false,
+        error: error.message || 'Error al actualizar configuración del ticket'
+      };
+    }
+  }
 }

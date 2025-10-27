@@ -8,12 +8,12 @@ export const createCashDrawerCommand = () => {
     return command;
 };
 export const createTicketHTML = (ticketData) => {
-    const { storeName = "FARMACIAS MS", storeAddress = "Dirección de la farmacia", ticketNumber = Date.now().toString().slice(-6), items = [], total = 0, subtotal, iva, tipoPago, montoRecibido, cambio, datosTarjeta, usuario, sucursal, folio, date = new Date().toLocaleString('es-ES') } = ticketData;
+    const { storeName = "FARMACIAS MS", storeAddress = "Dirección de la farmacia", ticketNumber = Date.now().toString().slice(-6), items = [], total = 0, subtotal, iva, tipoPago, montoRecibido, cambio, datosTarjeta, usuario, sucursal, folio, rfc, razonSocial, telefono, logoPath, date = new Date().toLocaleString('es-ES') } = ticketData;
     const itemsHTML = items.map(item => {
         const itemTotal = item.total || (item.quantity * item.price);
         return `
     <tr>
-      <td style=\"text-align: left; padding: 2px 0;\">${item.name}</td>
+      <td style=\"text-align: left; padding: 2px 0;\">${item.name}${item.aplicaIVA ? ' *' : ''}</td>
       <td style=\"text-align: center; padding: 2px 0;\">${item.quantity}</td>
       <td style=\"text-align: right; padding: 2px 0;\">$${item.price.toFixed(2)}</td>
       <td style=\"text-align: right; padding: 2px 0;\">$${itemTotal.toFixed(2)}</td>
@@ -126,8 +126,12 @@ export const createTicketHTML = (ticketData) => {
     <body>
       <div class=\"ticket\">
         <div class=\"header\">
+          ${logoPath ? `<div style=\"margin-bottom: 8px;\"><div style=\"width: 60px; height: 60px; margin: 0 auto; background: #f0f0f0; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #999;\">LOGO</div></div>` : ''}
           <div class=\"store-name\">${storeName}</div>
+          ${razonSocial ? `<div class=\"store-address\">${razonSocial}</div>` : ''}
+          ${rfc ? `<div class=\"store-address\">RFC: ${rfc}</div>` : ''}
           <div class=\"store-address\">${storeAddress}</div>
+          ${telefono ? `<div class=\"store-address\">Tel: ${telefono}</div>` : ''}
         </div>
         
         <div class=\"ticket-info\">
@@ -149,16 +153,16 @@ export const createTicketHTML = (ticketData) => {
         
         <div class=\"total-section\">
           ${subtotal ? `<div>Subtotal: $${subtotal.toFixed(2)}</div>` : ''}
-          ${iva ? `<div>IVA: $${iva.toFixed(2)}</div>` : ''}
+          ${iva && iva > 0 ? `<div>IVA (16%): $${iva.toFixed(2)}</div>` : ''}
           <div class=\"total\">TOTAL: $${total.toFixed(2)}</div>
+          ${iva && iva > 0 ? `<div style=\"font-size: 8px; margin-top: 4px;\">* Productos con IVA incluido</div>` : ''}
         </div>
         
         ${pagoHTML}
         
         <div class=\"footer\">
           <div>¡Gracias por su compra!</div>
-          <div>Sistema POS Farmacias MS</div>
-          <div>RFC: [Configurar RFC]</div>
+          <div style=\"font-size: 8px; margin-top: 4px;\">Sistema POS Farmacias MS</div>
         </div>
       </div>
     </body>

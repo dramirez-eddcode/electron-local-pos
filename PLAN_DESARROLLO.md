@@ -185,6 +185,16 @@ export enum IpcChannels {
 - Interfaz responsiva con Tailwind CSS
 - Persistencia de sesión entre reinicios de la aplicación
 
+#### 🐛 Issues Encontrados y Solucionados:
+1. **Tabla AUDIT_LOG faltante**: El schema embebido en `connection.ts` no incluía todas las tablas del `schema.sql`. Se agregaron tablas faltantes: AUDIT_LOG, ENTRADA, MOVENTRADA, CORTE, SYNC_LOG, PLM_MEDICAMENTOS, BACKUP_LOG.
+
+2. **Formulario de login congelado después de logout**:
+   - **Causa**: El uso de `confirm()` nativo bloqueaba el hilo principal de JavaScript causando problemas con React Router y state updates.
+   - **Solución**: Removido `confirm()` del logout handler y aplicado patrón de focus con `requestAnimationFrame` y `useCallback` en el componente Login.
+   - **Lección aprendida**: NUNCA usar `alert()`, `confirm()` o `prompt()` nativos en la aplicación. Usar toast notifications (Sonner) o modales personalizados de React en su lugar.
+
+3. **Re-inicialización de DB en logout**: El `useEffect` en App.tsx se ejecutaba cada vez que cambiaba `isAuthenticated`, causando re-inicialización de la base de datos. Se separó la lógica en dos `useEffect` independientes.
+
 ### 2.1 Sistema de Login
 
 **Componente**: `src/renderer/pages/Login.tsx`

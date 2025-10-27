@@ -61,4 +61,21 @@ export class ConfigHandler {
             };
         }
     }
+    async updateTicketConfig(event, config) {
+        try {
+            // Usar el método existente updateSucursal
+            await db.updateSucursal(config);
+            return {
+                success: true,
+                message: 'Configuración del ticket actualizada correctamente'
+            };
+        }
+        catch (error) {
+            console.error('Error actualizando configuración de ticket:', error);
+            return {
+                success: false,
+                error: error.message || 'Error al actualizar configuración del ticket'
+            };
+        }
+    }
 }

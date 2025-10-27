@@ -69,6 +69,7 @@ The application uses Electron's IPC for main/renderer communication:
 - `db:query`: Database queries
 - `db:execute`: Database operations
 - `config:getSucursal`: Get branch configuration
+- `config:updateTicketConfig`: Update ticket printing configuration (Admin module)
 - `product:search`: Product search functionality
 - `sale:create`: Create new sales transactions
 
@@ -79,6 +80,19 @@ Access all functions via `window.electronAPI` in the renderer process.
 - Uses system print API for receipt printing (58mm thermal printer format)
 - Cash drawer controlled via ESC/POS commands (Buffer: [0x1B, 0x70, 0x00, 0x19, 0xFA])
 - Ticket HTML generation includes proper styling for thermal printers
+
+### Ticket Configuration
+- Ticket configuration is managed through the **Admin module** (🎫 Ticket tab)
+- Configuration is stored in the `SUCURSAL` table with the following fields:
+  - `NOMBRE_SUCURSAL`: Pharmacy name displayed on ticket
+  - `RAZON_SOCIAL`: Legal business name
+  - `RFC`: Tax identification number
+  - `DIRECCION`: Business address
+  - `TELEFONO`: Contact phone number
+  - `LOGO_PATH`: Path to logo image (optional)
+- When printing, the `print-ticket` handler automatically loads configuration from the database
+- The printer service (`src/main/services/printer.service.ts`) uses this configuration to generate ticket HTML
+- Preview available in Admin module shows real-time updates as configuration changes
 
 ## Technology Stack
 
@@ -134,3 +148,69 @@ Access all functions via `window.electronAPI` in the renderer process.
 - **Automatic Sync**: Configurable by admin, triggers on stable network detection
 - **Branch Identification**: All synced data includes `SUCURSAL_ID` for multi-tenant separation
 - **Conflict Resolution**: Local data takes precedence, cloud serves as backup/reporting source
+
+## UI/UX Best Practices
+
+### ⚠️ CRITICAL: Never Use Native Alerts/Confirms
+
+**NEVER use native browser alerts, confirms, or prompts:**
+- ❌ `alert()`
+- ❌ `confirm()`
+- ❌ `prompt()`
+
+**Why?** Native dialogs block the JavaScript main thread and cause UI freezing issues, especially with React state updates and React Router navigation. This has been confirmed to cause form freezing after logout operations.
+
+**Instead, use:**
+- ✅ **Toast notifications** (Sonner library recommended)
+- ✅ **Custom React modals** for confirmations
+- ✅ **Inline validation messages** for errors
+
+### Toast Notifications Setup
+
+For user feedback, implement toast notifications:
+
+```bash
+npm install sonner
+```
+
+```typescript
+import { toast } from 'sonner';
+
+// Success notifications
+toast.success('Venta registrada correctamente');
+
+// Error notifications
+toast.error('Error al procesar la venta');
+
+// Warning notifications
+toast.warning('Stock bajo en este producto');
+
+// Info notifications
+toast.info('Sincronización iniciada');
+```
+
+### Input Focus Management
+
+When managing input focus in React components, use:
+- `useRef` to maintain references to inputs
+- `useCallback` to memoize focus functions
+- **`requestAnimationFrame`** to schedule focus after React renders complete
+
+Example pattern (from POS component):
+```typescript
+const inputRef = useRef<HTMLInputElement>(null);
+
+const focusInput = useCallback(() => {
+  if (inputRef.current) {
+    requestAnimationFrame(() => {
+      try {
+        inputRef.current?.focus();
+      } catch (error) {
+        console.warn('Error focusing input:', error);
+      }
+    });
+  }
+}, []);
+```
+
+This pattern prevents input freezing issues after state changes.

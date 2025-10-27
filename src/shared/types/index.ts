@@ -55,6 +55,7 @@ export interface Producto {
   PRECIO_COMPRA: number;
   STOCK_ACTUAL: number;
   STOCK_MINIMO: number;
+  IVA_PRODUCTO: number; // 1 = aplica IVA, 0 = no aplica IVA
   ACTIVO: boolean;
   SUCURSAL_ID: string;
   FECHA_CREACION: Date;
@@ -116,6 +117,9 @@ export interface ItemCarrito {
   precio: number;
   cantidad: number;
   subtotal: number;
+  aplicaIVA: boolean; // Si este producto lleva IVA
+  iva: number; // Monto del IVA para este item
+  totalConIVA: number; // Total incluyendo IVA
 }
 
 // Corte de caja

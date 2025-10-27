@@ -30,9 +30,10 @@ export class SaleHandler {
             // Generar folio único
             const timestamp = Date.now().toString();
             const folio = `POS${timestamp.slice(-8)}`;
-            // Calcular subtotal e IVA (asumiendo IVA del 16%)
-            const iva = saleData.total * 0.16;
-            const subtotal = saleData.total - iva;
+            // Usar los valores de subtotal e IVA calculados en el frontend
+            const subtotal = saleData.subtotal;
+            const iva = saleData.iva;
+            const total = saleData.total;
             // Insertar venta principal
             const ventaResult = await db.execute(`
         INSERT INTO SALIDA (
@@ -43,7 +44,7 @@ export class SaleHandler {
       `, [
                 folio,
                 new Date().toISOString(),
-                saleData.total,
+                total,
                 subtotal,
                 iva,
                 saleData.tipoPago,
@@ -106,6 +107,8 @@ export class SaleHandler {
             // Convertir formato de ventaData al formato de saleData
             const saleData = {
                 items: ventaData.items,
+                subtotal: ventaData.subtotal,
+                iva: ventaData.iva,
                 total: ventaData.total,
                 tipoPago: ventaData.tipoPago,
                 montoEfectivo: ventaData.tipoPago === 'EFECTIVO' ? ventaData.efectivo || ventaData.total : 0,

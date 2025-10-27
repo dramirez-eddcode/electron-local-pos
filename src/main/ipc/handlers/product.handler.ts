@@ -38,7 +38,23 @@ export class ProductHandler {
       }
 
       let sql = `
-        SELECT p.*, l.nombre_laboratorio
+        SELECT
+          p.ID_PRODUCTO,
+          p.CODIGO_PRODUCTO as CODIGO_BARRAS,
+          p.CODIGO_PRODUCTO,
+          p.NOMBRE_PRODUCTO,
+          p.SUSTANCIA_PRODUCTO as DESCRIPCION,
+          p.PRECIO_PRODUCTO as PRECIO_VENTA,
+          p.COSTO_PRODUCTO as PRECIO_COMPRA,
+          p.CANTIDAD_PRODUCTO as STOCK_ACTUAL,
+          p.MIN_PRODUCTO as STOCK_MINIMO,
+          p.IVA_PRODUCTO,
+          p.ACTIVO,
+          p.SUCURSAL_ID,
+          p.FECHA_CREACION,
+          p.FECHA_MODIFICACION as FECHA_ACTUALIZACION,
+          p.SINCRONIZADO,
+          l.nombre_laboratorio
         FROM PRODUCTO p
         LEFT JOIN LABORATORIO l ON p.ID_LABORATORIO = l.id_laboratorio
         WHERE p.ACTIVO = 1
@@ -89,7 +105,23 @@ export class ProductHandler {
   async getByCode(event: any, codigo: string): Promise<IpcResponse<Producto | null>> {
     try {
       const productos = await db.query(`
-        SELECT p.*, l.nombre_laboratorio
+        SELECT
+          p.ID_PRODUCTO,
+          p.CODIGO_PRODUCTO as CODIGO_BARRAS,
+          p.CODIGO_PRODUCTO,
+          p.NOMBRE_PRODUCTO,
+          p.SUSTANCIA_PRODUCTO as DESCRIPCION,
+          p.PRECIO_PRODUCTO as PRECIO_VENTA,
+          p.COSTO_PRODUCTO as PRECIO_COMPRA,
+          p.CANTIDAD_PRODUCTO as STOCK_ACTUAL,
+          p.MIN_PRODUCTO as STOCK_MINIMO,
+          p.IVA_PRODUCTO,
+          p.ACTIVO,
+          p.SUCURSAL_ID,
+          p.FECHA_CREACION,
+          p.FECHA_MODIFICACION as FECHA_ACTUALIZACION,
+          p.SINCRONIZADO,
+          l.nombre_laboratorio
         FROM PRODUCTO p
         LEFT JOIN LABORATORIO l ON p.ID_LABORATORIO = l.id_laboratorio
         WHERE p.CODIGO_PRODUCTO = ? AND p.ACTIVO = 1
@@ -113,7 +145,23 @@ export class ProductHandler {
   async getById(event: any, id: number): Promise<IpcResponse<Producto | null>> {
     try {
       const productos = await db.query(`
-        SELECT p.*, l.nombre_laboratorio
+        SELECT
+          p.ID_PRODUCTO,
+          p.CODIGO_PRODUCTO as CODIGO_BARRAS,
+          p.CODIGO_PRODUCTO,
+          p.NOMBRE_PRODUCTO,
+          p.SUSTANCIA_PRODUCTO as DESCRIPCION,
+          p.PRECIO_PRODUCTO as PRECIO_VENTA,
+          p.COSTO_PRODUCTO as PRECIO_COMPRA,
+          p.CANTIDAD_PRODUCTO as STOCK_ACTUAL,
+          p.MIN_PRODUCTO as STOCK_MINIMO,
+          p.IVA_PRODUCTO,
+          p.ACTIVO,
+          p.SUCURSAL_ID,
+          p.FECHA_CREACION,
+          p.FECHA_MODIFICACION as FECHA_ACTUALIZACION,
+          p.SINCRONIZADO,
+          l.nombre_laboratorio
         FROM PRODUCTO p
         LEFT JOIN LABORATORIO l ON p.ID_LABORATORIO = l.id_laboratorio
         WHERE p.ID_PRODUCTO = ? AND p.ACTIVO = 1

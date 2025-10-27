@@ -203,10 +203,11 @@ const Dashboard: React.FC = () => {
               <div className="font-semibold">Punto de Venta</div>
             </button>
             
-            <button 
+            <button
+              onClick={() => canManageInventory() && navigate('/inventory')}
               className={`p-4 rounded-lg transition-colors ${
-                canManageInventory() 
-                  ? 'bg-cyan-500 text-white hover:bg-cyan-600' 
+                canManageInventory()
+                  ? 'bg-cyan-500 text-white hover:bg-cyan-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
               disabled={!canManageInventory()}
@@ -214,11 +215,12 @@ const Dashboard: React.FC = () => {
               <div className="text-2xl mb-2">📦</div>
               <div className="font-semibold">Inventario</div>
             </button>
-            
-            <button 
+
+            <button
+              onClick={() => canViewReports() && navigate('/reports')}
               className={`p-4 rounded-lg transition-colors ${
-                canViewReports() 
-                  ? 'bg-indigo-500 text-white hover:bg-indigo-600' 
+                canViewReports()
+                  ? 'bg-indigo-500 text-white hover:bg-indigo-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
               disabled={!canViewReports()}
@@ -240,17 +242,30 @@ const Dashboard: React.FC = () => {
               <div className="font-semibold">Corte de Caja</div>
             </button>
             
-            <button 
+            <button
               onClick={() => canManageUsers() && navigate('/admin')}
               className={`p-4 rounded-lg transition-colors ${
-                canManageUsers() 
-                  ? 'bg-red-500 text-white hover:bg-red-600' 
+                canManageUsers()
+                  ? 'bg-red-500 text-white hover:bg-red-600'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
               disabled={!canManageUsers()}
             >
               <div className="text-2xl mb-2">⚙️</div>
               <div className="font-semibold">Administración</div>
+            </button>
+
+            <button
+              onClick={() => hasPermission('backup') && navigate('/backup')}
+              className={`p-4 rounded-lg transition-colors ${
+                hasPermission('backup')
+                  ? 'bg-green-500 text-white hover:bg-green-600'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              disabled={!hasPermission('backup')}
+            >
+              <div className="text-2xl mb-2">💾</div>
+              <div className="font-semibold">Respaldos</div>
             </button>
           </div>
         </div>

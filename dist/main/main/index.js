@@ -88,7 +88,19 @@ class FarmaciasPOSApp {
         // MANTENER FUNCIONALIDAD EXISTENTE - IPC Handler para imprimir tickets
         ipcMain.handle('print-ticket', async (event, ticketData) => {
             try {
-                const htmlContent = createTicketHTML(ticketData);
+                // Obtener configuración de la sucursal desde la base de datos
+                const sucursal = await db.getSucursal();
+                // Mezclar datos de configuración con los datos del ticket
+                const ticketDataConConfig = {
+                    ...ticketData,
+                    storeName: sucursal?.NOMBRE_SUCURSAL || ticketData.storeName || 'FARMACIAS MS',
+                    storeAddress: sucursal?.DIRECCION || ticketData.storeAddress || '',
+                    rfc: sucursal?.RFC || '',
+                    razonSocial: sucursal?.RAZON_SOCIAL || '',
+                    telefono: sucursal?.TELEFONO || '',
+                    logoPath: sucursal?.LOGO_PATH || ''
+                };
+                const htmlContent = createTicketHTML(ticketDataConConfig);
                 console.log('Creating print window...');
                 const printWindow = new BrowserWindow({
                     width: 400,

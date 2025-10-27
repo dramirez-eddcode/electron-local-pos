@@ -11,6 +11,8 @@ import { BackupHandler } from './handlers/backup.handler.js';
 import { SyncHandler } from './handlers/sync.handler.js';
 import { PLMHandler } from './handlers/plm.handler.js';
 import { SystemHandler } from './handlers/system.handler.js';
+import { AdminHandler } from './handlers/admin.handler.js';
+import { InventoryHandler } from './handlers/inventory.handler.js';
 export class IpcChannelManager {
     constructor() {
         Object.defineProperty(this, "authHandler", {
@@ -67,15 +69,29 @@ export class IpcChannelManager {
             writable: true,
             value: void 0
         });
+        Object.defineProperty(this, "adminHandler", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
+        Object.defineProperty(this, "inventoryHandler", {
+            enumerable: true,
+            configurable: true,
+            writable: true,
+            value: void 0
+        });
         this.authHandler = new AuthHandler();
         this.productHandler = new ProductHandler();
         this.saleHandler = new SaleHandler();
         this.configHandler = new ConfigHandler();
-        this.reportHandler = new ReportHandler();
+        this.reportHandler = new ReportHandler(db);
         this.backupHandler = new BackupHandler(db);
         this.syncHandler = new SyncHandler();
         this.plmHandler = new PLMHandler();
         this.systemHandler = new SystemHandler();
+        this.adminHandler = new AdminHandler();
+        this.inventoryHandler = new InventoryHandler(db);
     }
     setupChannels() {
         // Database básico
@@ -128,10 +144,12 @@ export class IpcChannelManager {
         ipcMain.handle(IpcChannels.CONFIG_UPDATE_SUCURSAL, this.configHandler.updateSucursal.bind(this.configHandler));
         ipcMain.handle(IpcChannels.CONFIG_GET_SYNC, this.configHandler.getSyncConfig.bind(this.configHandler));
         ipcMain.handle(IpcChannels.CONFIG_UPDATE_SYNC, this.configHandler.updateSyncConfig.bind(this.configHandler));
+        ipcMain.handle('config:updateTicketConfig', this.configHandler.updateTicketConfig.bind(this.configHandler));
         // Reportes
         ipcMain.handle(IpcChannels.REPORT_DAILY_CLOSE, this.reportHandler.dailyClose.bind(this.reportHandler));
         ipcMain.handle(IpcChannels.REPORT_SALES, this.reportHandler.sales.bind(this.reportHandler));
         ipcMain.handle(IpcChannels.REPORT_INVENTORY, this.reportHandler.inventory.bind(this.reportHandler));
+        ipcMain.handle('report:getSalesReport', this.reportHandler.getSalesReport.bind(this.reportHandler));
         // Respaldos
         ipcMain.handle(IpcChannels.BACKUP_CREATE, this.backupHandler.create.bind(this.backupHandler));
         ipcMain.handle(IpcChannels.BACKUP_RESTORE, this.backupHandler.restore.bind(this.backupHandler));
@@ -152,6 +170,25 @@ export class IpcChannelManager {
         ipcMain.handle(IpcChannels.SYSTEM_GET_INFO, this.systemHandler.getInfo.bind(this.systemHandler));
         ipcMain.handle(IpcChannels.SYSTEM_CHECK_ONLINE, this.systemHandler.checkOnline.bind(this.systemHandler));
         ipcMain.handle(IpcChannels.SYSTEM_GET_USB_DEVICES, this.systemHandler.getUSBDevices.bind(this.systemHandler));
+        // Administración
+        ipcMain.handle('admin:getUsers', this.adminHandler.getUsers.bind(this.adminHandler));
+        ipcMain.handle('admin:getUserTypes', this.adminHandler.getUserTypes.bind(this.adminHandler));
+        ipcMain.handle('admin:createUser', this.adminHandler.createUser.bind(this.adminHandler));
+        ipcMain.handle('admin:updateUser', this.adminHandler.updateUser.bind(this.adminHandler));
+        ipcMain.handle('admin:deleteUser', this.adminHandler.deleteUser.bind(this.adminHandler));
+        ipcMain.handle('admin:createUserType', this.adminHandler.createUserType.bind(this.adminHandler));
+        ipcMain.handle('admin:updateUserType', this.adminHandler.updateUserType.bind(this.adminHandler));
+        ipcMain.handle('admin:deleteUserType', this.adminHandler.deleteUserType.bind(this.adminHandler));
+        // Inventario
+        ipcMain.handle('inventory:getProducts', this.inventoryHandler.getProducts.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:createProduct', this.inventoryHandler.createProduct.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:updateProduct', this.inventoryHandler.updateProduct.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:deleteProduct', this.inventoryHandler.deleteProduct.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:getLaboratorios', this.inventoryHandler.getLaboratorios.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:getProductStats', this.inventoryHandler.getProductStats.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:adjustStock', this.inventoryHandler.adjustStock.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:exportToCSV', this.inventoryHandler.exportToCSV.bind(this.inventoryHandler));
+        ipcMain.handle('inventory:importFromCSV', this.inventoryHandler.importFromCSV.bind(this.inventoryHandler));
         console.log('Canales IPC configurados correctamente');
     }
     createResponse(success, data, error, message) {

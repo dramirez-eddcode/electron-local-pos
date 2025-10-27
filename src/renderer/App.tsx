@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { useAuth } from './store/authStore';
 
 // Componentes
@@ -9,6 +10,8 @@ import POS from './pages/POS';
 import Admin from './pages/Admin';
 import CorteCaja from './pages/CorteCaja';
 import Backup from './pages/Backup';
+import Reports from './pages/Reports';
+import Inventory from './pages/Inventory';
 import Layout from './components/common/Layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import LoadingScreen from './components/common/LoadingScreen';
@@ -23,41 +26,42 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [dbInitialized, setDbInitialized] = useState(false);
 
+  // Inicializar base de datos solo UNA vez al montar el componente
   useEffect(() => {
-    const initializeApp = async () => {
+    const initializeDatabase = async () => {
       try {
-        console.log('Inicializando aplicación...');
-        
-        // 1. Inicializar base de datos
         console.log('Inicializando base de datos...');
         const dbResponse = await window.electronAPI.dbInitialize();
-        
+
         if (dbResponse.success) {
           console.log('Base de datos inicializada correctamente');
           setDbInitialized(true);
         } else {
           console.error('Error inicializando base de datos:', dbResponse.error);
-          // Continuar aunque falle la DB para mostrar error
           setDbInitialized(false);
         }
 
-        // 2. Verificar token si existe
-        if (isAuthenticated) {
-          console.log('Verificando token existente...');
-          await verifyToken();
-        }
-
-        console.log('Aplicación inicializada');
         setIsInitialized(true);
-
       } catch (error) {
         console.error('Error inicializando aplicación:', error);
-        setIsInitialized(true); // Continuar para mostrar error
+        setIsInitialized(true);
       }
     };
 
-    initializeApp();
-  }, [isAuthenticated, verifyToken]);
+    initializeDatabase();
+  }, []); // Solo ejecutar una vez al montar
+
+  // Verificar token cuando está autenticado (ejecutar después de la inicialización)
+  useEffect(() => {
+    const checkToken = async () => {
+      if (isAuthenticated && isInitialized && dbInitialized) {
+        console.log('Verificando token existente...');
+        await verifyToken();
+      }
+    };
+
+    checkToken();
+  }, [isAuthenticated, isInitialized, dbInitialized, verifyToken]);
 
   // Mostrar pantalla de carga mientras inicializa
   if (!isInitialized || authLoading) {
@@ -90,9 +94,16 @@ function App() {
   }
 
   return (
-    <div className="App">
-      <Router>
-        <Routes>
+    <>
+      <Toaster
+        position="top-right"
+        expand={false}
+        richColors
+        closeButton
+      />
+      <div className="App">
+        <Router>
+          <Routes>
           {/* Ruta de login - solo accesible si NO está autenticado */}
           <Route 
             path="/login" 
@@ -127,36 +138,26 @@ function App() {
             } 
           />
 
-          <Route 
-            path="/inventory" 
+          <Route
+            path="/inventory"
             element={
               <ProtectedRoute requiredPermission="inventario">
                 <Layout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Inventario</h1>
-                    <p className="text-gray-600 mt-2">
-                      Gestión de productos (En desarrollo)
-                    </p>
-                  </div>
+                  <Inventory />
                 </Layout>
               </ProtectedRoute>
-            } 
+            }
           />
 
-          <Route 
-            path="/reports" 
+          <Route
+            path="/reports"
             element={
               <ProtectedRoute requiredPermission="reportes">
                 <Layout>
-                  <div className="p-6">
-                    <h1 className="text-2xl font-bold">Reportes</h1>
-                    <p className="text-gray-600 mt-2">
-                      Reportes y estadísticas (En desarrollo)
-                    </p>
-                  </div>
+                  <Reports />
                 </Layout>
               </ProtectedRoute>
-            } 
+            }
           />
 
           <Route 
@@ -224,6 +225,7 @@ function App() {
         </Routes>
       </Router>
     </div>
+    </>
   );
 }
 

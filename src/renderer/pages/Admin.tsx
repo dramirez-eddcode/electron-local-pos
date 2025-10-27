@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '../store/authStore';
 import type { Usuario, TipoUsuario } from '../../shared/types/index.js';
 
@@ -8,8 +9,8 @@ interface UsuarioConPassword extends Usuario {
 }
 
 const Admin: React.FC = () => {
-  const { user, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<'usuarios' | 'tipos' | 'permisos'>('usuarios');
+  const { user, hasPermission, sucursal } = useAuth();
+  const [activeTab, setActiveTab] = useState<'usuarios' | 'tipos' | 'permisos' | 'ticket'>('usuarios');
   
   // Estados para usuarios
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -20,6 +21,16 @@ const Admin: React.FC = () => {
   const [tiposUsuario, setTiposUsuario] = useState<TipoUsuario[]>([]);
   const [tipoEditando, setTipoEditando] = useState<TipoUsuario | null>(null);
   const [showTipoModal, setShowTipoModal] = useState(false);
+
+  // Estados para configuración de ticket
+  const [ticketConfig, setTicketConfig] = useState({
+    NOMBRE_SUCURSAL: '',
+    RAZON_SOCIAL: '',
+    DIRECCION: '',
+    TELEFONO: '',
+    RFC: '',
+    LOGO_PATH: ''
+  });
 
   // Lista de todos los permisos disponibles
   const permisosDisponibles = [
@@ -37,7 +48,18 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     cargarDatos();
-  }, []);
+    // Cargar configuración de ticket desde sucursal
+    if (sucursal) {
+      setTicketConfig({
+        NOMBRE_SUCURSAL: sucursal.NOMBRE_SUCURSAL || '',
+        RAZON_SOCIAL: sucursal.RAZON_SOCIAL || '',
+        DIRECCION: sucursal.DIRECCION || '',
+        TELEFONO: sucursal.TELEFONO || '',
+        RFC: sucursal.RFC || '',
+        LOGO_PATH: sucursal.LOGO_PATH || ''
+      });
+    }
+  }, [sucursal]);
 
   const cargarDatos = async () => {
     try {
@@ -66,31 +88,48 @@ const Admin: React.FC = () => {
     e.preventDefault();
     if (!usuarioEditando) return;
 
+    // Validar contraseñas
+    if (usuarioEditando.PASSWORD_USUARIO && usuarioEditando.PASSWORD_USUARIO.trim() !== '') {
+      if (usuarioEditando.PASSWORD_USUARIO.length < 6) {
+        toast.error('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+
+      if (usuarioEditando.PASSWORD_USUARIO !== usuarioEditando.CONFIRMACION_PASSWORD) {
+        toast.error('Las contraseñas no coinciden');
+        return;
+      }
+    } else if (usuarioEditando.ID_USUARIO === 0) {
+      toast.error('La contraseña es requerida para nuevos usuarios');
+      return;
+    }
+
     try {
       if (usuarioEditando.ID_USUARIO === 0) {
         // Crear nuevo usuario
         const response = await window.electronAPI.createUser(usuarioEditando);
         if (response.success) {
-          alert(response.message);
-          cargarDatos(); // Recargar datos
+          toast.success(response.message || 'Usuario creado exitosamente');
+          await cargarDatos(); // Recargar datos
+          setShowUserModal(false);
+          setUsuarioEditando(null);
         } else {
-          alert('Error: ' + response.error);
+          toast.error(response.error || 'Error al crear usuario');
         }
       } else {
         // Actualizar usuario existente
         const response = await window.electronAPI.updateUser(usuarioEditando);
         if (response.success) {
-          alert(response.message);
-          cargarDatos(); // Recargar datos
+          toast.success(response.message || 'Usuario actualizado exitosamente');
+          await cargarDatos(); // Recargar datos
+          setShowUserModal(false);
+          setUsuarioEditando(null);
         } else {
-          alert('Error: ' + response.error);
+          toast.error(response.error || 'Error al actualizar usuario');
         }
       }
-
-      setShowUserModal(false);
-      setUsuarioEditando(null);
     } catch (error) {
-      alert('Error procesando usuario: ' + error);
+      toast.error('Error procesando usuario: ' + error);
     }
   };
 
@@ -98,31 +137,37 @@ const Admin: React.FC = () => {
     e.preventDefault();
     if (!tipoEditando) return;
 
+    if (!tipoEditando.NOMBRE_TIPO.trim()) {
+      toast.error('El nombre del tipo es requerido');
+      return;
+    }
+
     try {
       if (tipoEditando.ID_TIPOUSUARIO === 0) {
         // Crear nuevo tipo
         const response = await window.electronAPI.createUserType(tipoEditando);
         if (response.success) {
-          alert(response.message);
-          cargarDatos(); // Recargar datos
+          toast.success(response.message || 'Tipo de usuario creado exitosamente');
+          await cargarDatos(); // Recargar datos
+          setShowTipoModal(false);
+          setTipoEditando(null);
         } else {
-          alert('Error: ' + response.error);
+          toast.error(response.error || 'Error al crear tipo de usuario');
         }
       } else {
         // Actualizar tipo existente
         const response = await window.electronAPI.updateUserType(tipoEditando);
         if (response.success) {
-          alert(response.message);
-          cargarDatos(); // Recargar datos
+          toast.success(response.message || 'Tipo de usuario actualizado exitosamente');
+          await cargarDatos(); // Recargar datos
+          setShowTipoModal(false);
+          setTipoEditando(null);
         } else {
-          alert('Error: ' + response.error);
+          toast.error(response.error || 'Error al actualizar tipo de usuario');
         }
       }
-
-      setShowTipoModal(false);
-      setTipoEditando(null);
     } catch (error) {
-      alert('Error procesando tipo de usuario: ' + error);
+      toast.error('Error procesando tipo de usuario: ' + error);
     }
   };
 
@@ -163,27 +208,42 @@ const Admin: React.FC = () => {
 
   const togglePermiso = (permiso: string) => {
     if (!tipoEditando) return;
-    
+
     const permisos = tipoEditando.PERMISOS.includes(permiso)
       ? tipoEditando.PERMISOS.filter(p => p !== permiso)
       : [...tipoEditando.PERMISOS, permiso];
-    
+
     setTipoEditando({ ...tipoEditando, PERMISOS: permisos });
   };
 
-  const eliminarUsuario = async (id: number) => {
-    if (confirm('¿Está seguro de eliminar este usuario?')) {
-      try {
-        const response = await window.electronAPI.deleteUser(id);
-        if (response.success) {
-          alert(response.message);
-          cargarDatos(); // Recargar datos
-        } else {
-          alert('Error: ' + response.error);
-        }
-      } catch (error) {
-        alert('Error eliminando usuario: ' + error);
+  const handleTicketConfigSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await window.electronAPI.invoke('config:updateTicketConfig', ticketConfig);
+      if (response.success) {
+        toast.success(response.message || 'Configuración del ticket actualizada correctamente');
+      } else {
+        toast.error(response.error || 'Error al actualizar configuración del ticket');
       }
+    } catch (error) {
+      toast.error('Error guardando configuración: ' + error);
+    }
+  };
+
+  const eliminarUsuario = async (id: number) => {
+    // En lugar de confirm(), simplemente llamar al handler directamente
+    // El usuario puede desactivar si no está seguro, o eliminar para remover completamente
+    try {
+      const response = await window.electronAPI.deleteUser(id);
+      if (response.success) {
+        toast.success(response.message || 'Usuario eliminado exitosamente');
+        await cargarDatos(); // Recargar datos
+      } else {
+        toast.error(response.error || 'Error al eliminar usuario');
+      }
+    } catch (error) {
+      toast.error('Error eliminando usuario: ' + error);
     }
   };
 
@@ -194,12 +254,13 @@ const Admin: React.FC = () => {
         const usuarioActualizado = { ...usuario, ACTIVO: !usuario.ACTIVO };
         const response = await window.electronAPI.updateUser(usuarioActualizado);
         if (response.success) {
-          cargarDatos(); // Recargar datos
+          toast.success(usuario.ACTIVO ? 'Usuario desactivado' : 'Usuario activado');
+          await cargarDatos(); // Recargar datos
         } else {
-          alert('Error: ' + response.error);
+          toast.error(response.error || 'Error al actualizar usuario');
         }
       } catch (error) {
-        alert('Error actualizando usuario: ' + error);
+        toast.error('Error actualizando usuario: ' + error);
       }
     }
   };
@@ -255,6 +316,16 @@ const Admin: React.FC = () => {
               }`}
             >
               🔐 Permisos
+            </button>
+            <button
+              onClick={() => setActiveTab('ticket')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'ticket'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              🎫 Ticket
             </button>
           </nav>
         </div>
@@ -395,7 +466,7 @@ const Admin: React.FC = () => {
           {activeTab === 'permisos' && (
             <div>
               <h2 className="text-xl font-semibold mb-6">Referencia de Permisos</h2>
-              
+
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {permisosDisponibles.map((permiso) => (
@@ -409,6 +480,226 @@ const Admin: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab: Ticket */}
+          {activeTab === 'ticket' && (
+            <div>
+              <h2 className="text-xl font-semibold mb-6">Configuración del Ticket</h2>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Formulario de configuración */}
+                <form onSubmit={handleTicketConfigSubmit}>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Nombre de la Farmacia</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.NOMBRE_SUCURSAL}
+                      onChange={(e) => setTicketConfig({...ticketConfig, NOMBRE_SUCURSAL: e.target.value})}
+                      placeholder="Ej: Farmacia MS Centro"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Razón Social</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.RAZON_SOCIAL}
+                      onChange={(e) => setTicketConfig({...ticketConfig, RAZON_SOCIAL: e.target.value})}
+                      placeholder="Ej: Farmacias MS S.A. de C.V."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">RFC</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.RFC}
+                      onChange={(e) => setTicketConfig({...ticketConfig, RFC: e.target.value.toUpperCase()})}
+                      placeholder="Ej: FMS850101ABC"
+                      maxLength={13}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Dirección</label>
+                    <textarea
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.DIRECCION}
+                      onChange={(e) => setTicketConfig({...ticketConfig, DIRECCION: e.target.value})}
+                      placeholder="Ej: Av. Principal #123, Col. Centro, CP 12345"
+                      rows={3}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Teléfono</label>
+                    <input
+                      type="tel"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.TELEFONO}
+                      onChange={(e) => setTicketConfig({...ticketConfig, TELEFONO: e.target.value})}
+                      placeholder="Ej: (123) 456-7890"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Ruta del Logo</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      value={ticketConfig.LOGO_PATH}
+                      onChange={(e) => setTicketConfig({...ticketConfig, LOGO_PATH: e.target.value})}
+                      placeholder="Ej: C:/logos/farmacia-logo.png"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ruta completa a la imagen del logo (opcional)
+                    </p>
+                  </div>
+
+                    <div className="flex justify-end pt-4">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                      >
+                        <span>💾</span>
+                        <span>Guardar Configuración</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Preview del Ticket */}
+                <div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4 text-gray-700">Vista Previa del Ticket</h3>
+
+                    {/* Simulación de ticket térmico 58mm */}
+                    <div className="mx-auto bg-white border-2 border-gray-300 shadow-lg" style={{ width: '280px', fontFamily: 'monospace' }}>
+                      <div className="p-4 text-center text-xs leading-tight">
+                        {/* Logo placeholder */}
+                        {ticketConfig.LOGO_PATH && (
+                          <div className="mb-2 flex justify-center">
+                            <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-gray-500 text-xs">
+                              LOGO
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Nombre de la sucursal */}
+                        <div className="font-bold text-sm mb-1">
+                          {ticketConfig.NOMBRE_SUCURSAL || 'NOMBRE DE LA FARMACIA'}
+                        </div>
+
+                        {/* Razón social */}
+                        <div className="text-xs mb-1">
+                          {ticketConfig.RAZON_SOCIAL || 'Razón Social'}
+                        </div>
+
+                        {/* RFC */}
+                        {ticketConfig.RFC && (
+                          <div className="text-xs mb-1">
+                            RFC: {ticketConfig.RFC}
+                          </div>
+                        )}
+
+                        {/* Dirección */}
+                        <div className="text-xs mb-1 whitespace-pre-wrap">
+                          {ticketConfig.DIRECCION || 'Dirección de la farmacia'}
+                        </div>
+
+                        {/* Teléfono */}
+                        {ticketConfig.TELEFONO && (
+                          <div className="text-xs mb-2">
+                            Tel: {ticketConfig.TELEFONO}
+                          </div>
+                        )}
+
+                        {/* Separador */}
+                        <div className="border-t border-dashed border-gray-400 my-2"></div>
+
+                        {/* Datos de ejemplo de la venta */}
+                        <div className="text-left text-xs">
+                          <div className="flex justify-between mb-1">
+                            <span>Fecha:</span>
+                            <span>{new Date().toLocaleDateString('es-MX')}</span>
+                          </div>
+                          <div className="flex justify-between mb-1">
+                            <span>Hora:</span>
+                            <span>{new Date().toLocaleTimeString('es-MX')}</span>
+                          </div>
+                          <div className="flex justify-between mb-1">
+                            <span>Folio:</span>
+                            <span>001234</span>
+                          </div>
+                          <div className="flex justify-between mb-1">
+                            <span>Cajero:</span>
+                            <span>{user?.NOMBRE_USUARIO || 'Usuario'}</span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-dashed border-gray-400 my-2"></div>
+
+                        {/* Productos de ejemplo */}
+                        <div className="text-left text-xs space-y-1">
+                          <div>
+                            <div className="font-semibold">Paracetamol 500mg</div>
+                            <div className="flex justify-between">
+                              <span>2 x $25.00</span>
+                              <span>$50.00</span>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold">Ibuprofeno 400mg *</div>
+                            <div className="flex justify-between">
+                              <span>1 x $35.00</span>
+                              <span>$35.00</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-dashed border-gray-400 my-2"></div>
+
+                        {/* Totales */}
+                        <div className="text-left text-xs space-y-1">
+                          <div className="flex justify-between">
+                            <span>Subtotal:</span>
+                            <span>$85.00</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>IVA (16%):</span>
+                            <span>$5.60</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-sm pt-1 border-t border-gray-400">
+                            <span>TOTAL:</span>
+                            <span>$90.60</span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-dashed border-gray-400 my-2"></div>
+
+                        {/* Información adicional */}
+                        <div className="text-xs text-center">
+                          <div className="mb-1">¡Gracias por su compra!</div>
+                          <div className="text-xs" style={{ fontSize: '10px' }}>* Productos con IVA incluido</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 text-center mt-4">
+                      Este es un ejemplo de cómo se verá el ticket con tu configuración
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
