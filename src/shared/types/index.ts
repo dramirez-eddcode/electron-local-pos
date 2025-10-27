@@ -11,6 +11,7 @@ export interface Usuario {
   ACTIVO: boolean;
   FECHA_CREACION: string;
   ULTIMO_LOGIN?: string;
+  PERMISOS?: string[];
 }
 
 export interface TipoUsuario {

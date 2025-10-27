@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Método genérico para invocar cualquier canal IPC
+  invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+
   // Funciones existentes de impresión y cajón (MANTENER)
   printTicket: (ticketData) => {
     console.log('Enviando ticket a impresión...')

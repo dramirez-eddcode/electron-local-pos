@@ -62,7 +62,7 @@ class FarmaciasPOSApp {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
-        preload: path.join(__dirname, '../../preload.js')
+        preload: path.join(__dirname, '../../../preload.js')
       },
       icon: path.join(__dirname, '../../assets/icon.png'), // TODO: Agregar icono
       show: false
@@ -70,7 +70,7 @@ class FarmaciasPOSApp {
 
     // Cargar aplicación
     if (process.env.NODE_ENV === 'development') {
-      this.mainWindow.loadURL('http://localhost:5173');
+      this.mainWindow.loadURL('http://localhost:5177');
       this.mainWindow.webContents.openDevTools();
     } else {
       this.mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
@@ -158,8 +158,9 @@ class FarmaciasPOSApp {
         if (!focusedWindow) {
           return { success: false, error: 'No hay ventana activa' };
         }
-        
-        const printers = await focusedWindow.webContents.getPrinters();
+
+        // Usar getPrinters del webContents
+        const printers = (focusedWindow.webContents as any).getPrinters();
         return { success: true, printers };
       } catch (error) {
         console.error('Error al obtener impresoras:', error);

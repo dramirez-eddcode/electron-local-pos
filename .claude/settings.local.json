@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Read(//c/**)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run build:electron:*)",
+      "Bash(npm run dev:electron:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:vite:*)",
+      "Bash(cross-env:*)",
+      "Bash(NODE_ENV=development electron .)",
+      "Bash(npx electron:*)",
+      "Bash(NODE_ENV=development npx electron .)"
     ],
     "deny": [],
     "ask": []

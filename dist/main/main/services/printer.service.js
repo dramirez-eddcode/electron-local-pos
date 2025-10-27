@@ -1,67 +1,17 @@
 // Servicio de impresión migrado con tipos TypeScript
 // Mantiene la funcionalidad existente con mejoras
-
-export interface TicketData {
-  storeName?: string;
-  storeAddress?: string;
-  ticketNumber?: string;
-  items: TicketItem[];
-  total: number;
-  date?: string;
-  // Nuevos campos para el sistema completo
-  subtotal?: number;
-  iva?: number;
-  tipoPago?: 'EFECTIVO' | 'TARJETA' | 'MIXTO';
-  montoRecibido?: number;
-  cambio?: number;
-  datosTarjeta?: {
-    tipo: string;
-    ultimosDigitos: string;
-    autorizacion: string;
-  };
-  usuario?: string;
-  sucursal?: string;
-  folio?: string;
-}
-
-export interface TicketItem {
-  name: string;
-  quantity: number;
-  price: number;
-  total?: number;
-  fechaCaducidad?: string;
-}
-
 // Comandos ESC/POS para abrir cajón de dinero
-export const createCashDrawerCommand = (): Buffer => {
-  // ESC/POS command para abrir cajón: ESC p m t1 t2
-  // ESC = 0x1B, p = 0x70, m = 0x00 (pin 2), t1 = 0x19 (25*2ms = 50ms), t2 = 0xFA (250*2ms = 500ms)
-  const command = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
-  return command;
+export const createCashDrawerCommand = () => {
+    // ESC/POS command para abrir cajón: ESC p m t1 t2
+    // ESC = 0x1B, p = 0x70, m = 0x00 (pin 2), t1 = 0x19 (25*2ms = 50ms), t2 = 0xFA (250*2ms = 500ms)
+    const command = Buffer.from([0x1B, 0x70, 0x00, 0x19, 0xFA]);
+    return command;
 };
-
-export const createTicketHTML = (ticketData: TicketData): string => {
-  const {
-    storeName = "FARMACIAS MS",
-    storeAddress = "Dirección de la farmacia",
-    ticketNumber = Date.now().toString().slice(-6),
-    items = [],
-    total = 0,
-    subtotal,
-    iva,
-    tipoPago,
-    montoRecibido,
-    cambio,
-    datosTarjeta,
-    usuario,
-    sucursal,
-    folio,
-    date = new Date().toLocaleString('es-ES')
-  } = ticketData;
-
-  const itemsHTML = items.map(item => {
-    const itemTotal = item.total || (item.quantity * item.price);
-    return `
+export const createTicketHTML = (ticketData) => {
+    const { storeName = "FARMACIAS MS", storeAddress = "Dirección de la farmacia", ticketNumber = Date.now().toString().slice(-6), items = [], total = 0, subtotal, iva, tipoPago, montoRecibido, cambio, datosTarjeta, usuario, sucursal, folio, date = new Date().toLocaleString('es-ES') } = ticketData;
+    const itemsHTML = items.map(item => {
+        const itemTotal = item.total || (item.quantity * item.price);
+        return `
     <tr>
       <td style=\"text-align: left; padding: 2px 0;\">${item.name}</td>
       <td style=\"text-align: center; padding: 2px 0;\">${item.quantity}</td>
@@ -70,12 +20,11 @@ export const createTicketHTML = (ticketData: TicketData): string => {
     </tr>
     ${item.fechaCaducidad ? `<tr><td colspan=\"4\" style=\"font-size: 8px; color: #666; text-align: left;\">Cad: ${item.fechaCaducidad}</td></tr>` : ''}
   `;
-  }).join('');
-
-  // Información de pago
-  let pagoHTML = '';
-  if (tipoPago) {
-    pagoHTML = `
+    }).join('');
+    // Información de pago
+    let pagoHTML = '';
+    if (tipoPago) {
+        pagoHTML = `
       <div class=\"payment-info\">
         <div class=\"payment-method\">Tipo de Pago: ${tipoPago}</div>
         ${montoRecibido ? `<div>Recibido: $${montoRecibido.toFixed(2)}</div>` : ''}
@@ -89,9 +38,8 @@ export const createTicketHTML = (ticketData: TicketData): string => {
         ` : ''}
       </div>
     `;
-  }
-
-  return `
+    }
+    return `
     <!DOCTYPE html>
     <html>
     <head>

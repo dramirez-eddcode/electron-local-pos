@@ -9,13 +9,14 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
-  const { 
-    user, 
-    sucursal, 
-    logout, 
-    getUserName, 
-    getUserType, 
-    getSucursalName 
+  const {
+    user,
+    sucursal,
+    logout,
+    getUserName,
+    getUserType,
+    getSucursalName,
+    hasPermission
   } = useAuth();
   
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -144,6 +145,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                       >
                         ⚙️ Configuración
                       </button>
+
+                      {hasPermission('backup') && (
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            navigate('/backup');
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                        >
+                          💾 Respaldos
+                        </button>
+                      )}
                       
                       <hr className="my-1" />
                       

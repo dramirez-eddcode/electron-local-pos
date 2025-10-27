@@ -34,6 +34,9 @@ export enum IpcChannels {
   BACKUP_RESTORE = 'backup:restore',
   BACKUP_EXPORT_USB = 'backup:exportUSB',
   BACKUP_LIST = 'backup:list',
+  BACKUP_DETECT_USB = 'backup:detectUSB',
+  BACKUP_SELECT_FILE = 'backup:selectFile',
+  BACKUP_SELECT_DIRECTORY = 'backup:selectDirectory',
   
   // Sync
   SYNC_START = 'sync:start',

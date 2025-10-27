@@ -15,90 +15,38 @@ const POS: React.FC = () => {
   const [efectivo, setEfectivo] = useState('');
   const [cambio, setCambio] = useState(0);
   const [procesandoVenta, setProcesandoVenta] = useState(false);
+  const [notificacion, setNotificacion] = useState<string | null>(null);
   
   const inputBusquedaRef = useRef<HTMLInputElement>(null);
-  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
-  
-  // Función para limpiar todos los timeouts
-  const limpiarTimeouts = useCallback(() => {
-    timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-    timeoutsRef.current = [];
-  }, []);
-  
-  // Función optimizada para enfocar input
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Función para enfocar input inmediatamente
   const enfocarInput = useCallback(() => {
-    // Limpiar timeouts anteriores
-    limpiarTimeouts();
-    
-    const doFocus = () => {
-      if (inputBusquedaRef.current && document.body.contains(inputBusquedaRef.current)) {
-        try {
-          inputBusquedaRef.current.focus();
-          inputBusquedaRef.current.select();
-        } catch (error) {
-          console.warn('Error enfocando input:', error);
-        }
+    // Limpiar timeout anterior si existe
+    if (focusTimeoutRef.current) {
+      clearTimeout(focusTimeoutRef.current);
+      focusTimeoutRef.current = null;
+    }
+
+    // Focus inmediato si el input está disponible
+    if (inputBusquedaRef.current && !procesandoVenta && !showPaymentModal) {
+      try {
+        inputBusquedaRef.current.focus();
+        inputBusquedaRef.current.select();
+      } catch (error) {
+        console.warn('Error enfocando input:', error);
       }
-    };
-    
-    // Un solo timeout con verificación
-    const timeout = setTimeout(() => {
-      doFocus();
-      // Verificar una vez más
-      const checkTimeout = setTimeout(() => {
-        if (document.activeElement !== inputBusquedaRef.current) {
-          doFocus();
-        }
-      }, 100);
-      timeoutsRef.current.push(checkTimeout);
-    }, 100);
-    
-    timeoutsRef.current.push(timeout);
-  }, [limpiarTimeouts]);
+    }
+  }, [procesandoVenta, showPaymentModal]);
   
-  // Limpiar timeouts al desmontar componente
+  // Limpiar timeout al desmontar componente
   useEffect(() => {
     return () => {
-      limpiarTimeouts();
-      // Limpieza adicional
-      setProcesandoVenta(false);
-      setShowPaymentModal(false);
-    };
-  }, [limpiarTimeouts]);
-  
-  // Función para limpiar todo el estado al cambiar de página
-  const limpiarTodoElEstado = useCallback(() => {
-    limpiarTimeouts();
-    setProcesandoVenta(false);
-    setShowPaymentModal(false);
-    setCarrito([]);
-    setBusqueda('');
-    setProductos([]);
-    setEfectivo('');
-    setTipoPago('EFECTIVO');
-    setCambio(0);
-  }, [limpiarTimeouts]);
-  
-  // Limpiar estado cuando el componente pierde visibilidad
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        limpiarTimeouts();
+      if (focusTimeoutRef.current) {
+        clearTimeout(focusTimeoutRef.current);
       }
     };
-    
-    const handleBeforeUnload = () => {
-      limpiarTodoElEstado();
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [limpiarTodoElEstado]);
+  }, []);
 
   // Calcular total cuando cambie el carrito
   useEffect(() => {
@@ -123,6 +71,13 @@ const POS: React.FC = () => {
     }
   }, []);
 
+  // Auto-focus cuando se cierra el modal de pago
+  useEffect(() => {
+    if (!showPaymentModal && !procesandoVenta) {
+      enfocarInput();
+    }
+  }, [showPaymentModal, procesandoVenta, enfocarInput]);
+
   const buscarProductos = async (termino: string) => {
     if (!termino.trim()) {
       setProductos([]);
@@ -131,51 +86,40 @@ const POS: React.FC = () => {
 
     setLoading(true);
     try {
-      // Simular búsqueda (luego conectar con la API)
-      const productosSimulados: Producto[] = [
-        {
-          ID_PRODUCTO: 1,
-          CODIGO_BARRAS: '7501234567890',
-          CODIGO_PLM: 'PLM001',
-          NOMBRE_PRODUCTO: 'PARACETAMOL 500mg 20 TAB',
-          DESCRIPCION: 'Analgésico y antipirético',
-          PRECIO_VENTA: 25.50,
-          PRECIO_COMPRA: 18.00,
-          STOCK_ACTUAL: 150,
-          STOCK_MINIMO: 20,
-          ACTIVO: true,
-          SUCURSAL_ID: sucursal?.SUCURSAL_ID || '',
-          FECHA_CREACION: new Date(),
-          FECHA_ACTUALIZACION: new Date(),
-          SINCRONIZADO: true,
-          FECHA_SINCRONIZACION: new Date()
-        },
-        {
-          ID_PRODUCTO: 2,
-          CODIGO_BARRAS: '7501234567891',
-          CODIGO_PLM: 'PLM002',
-          NOMBRE_PRODUCTO: 'IBUPROFENO 400mg 20 CAP',
-          DESCRIPCION: 'Antiinflamatorio no esteroideo',
-          PRECIO_VENTA: 35.00,
-          PRECIO_COMPRA: 25.00,
-          STOCK_ACTUAL: 80,
-          STOCK_MINIMO: 15,
-          ACTIVO: true,
-          SUCURSAL_ID: sucursal?.SUCURSAL_ID || '',
-          FECHA_CREACION: new Date(),
-          FECHA_ACTUALIZACION: new Date(),
-          SINCRONIZADO: true,
-          FECHA_SINCRONIZACION: new Date()
-        }
-      ].filter(p => 
-        p.NOMBRE_PRODUCTO.toLowerCase().includes(termino.toLowerCase()) ||
-        p.CODIGO_BARRAS.includes(termino) ||
-        p.CODIGO_PLM.toLowerCase().includes(termino.toLowerCase())
-      );
+      // Buscar productos reales en la base de datos
+      const result = await window.electronAPI.invoke('product:search', {
+        query: termino,
+        sucursalId: sucursal?.SUCURSAL_ID
+      });
 
-      setProductos(productosSimulados);
+      if (result.success && result.data) {
+        // Convertir los datos de la DB al formato esperado por el POS
+        const productosEncontrados: Producto[] = result.data.map((p: any) => ({
+          ID_PRODUCTO: p.ID_PRODUCTO,
+          CODIGO_BARRAS: p.CODIGO_PRODUCTO, // El schema usa CODIGO_PRODUCTO
+          CODIGO_PLM: p.CODIGO_PRODUCTO, // Usar el mismo código por ahora
+          NOMBRE_PRODUCTO: p.NOMBRE_PRODUCTO,
+          DESCRIPCION: p.SUSTANCIA_PRODUCTO || 'Sin descripción',
+          PRECIO_VENTA: p.PRECIO_PRODUCTO,
+          PRECIO_COMPRA: p.COSTO_PRODUCTO || 0,
+          STOCK_ACTUAL: p.CANTIDAD_PRODUCTO,
+          STOCK_MINIMO: p.MIN_PRODUCTO || 0,
+          ACTIVO: p.ACTIVO,
+          SUCURSAL_ID: p.SUCURSAL_ID,
+          FECHA_CREACION: new Date(p.FECHA_CREACION),
+          FECHA_ACTUALIZACION: new Date(p.FECHA_MODIFICACION),
+          SINCRONIZADO: p.SINCRONIZADO,
+          FECHA_SINCRONIZACION: p.FECHA_SINCRONIZACION ? new Date(p.FECHA_SINCRONIZACION) : undefined
+        }));
+
+        setProductos(productosEncontrados);
+      } else {
+        console.warn('No se encontraron productos:', result.error);
+        setProductos([]);
+      }
     } catch (error) {
       console.error('Error buscando productos:', error);
+      setProductos([]);
     } finally {
       setLoading(false);
     }
@@ -205,9 +149,8 @@ const POS: React.FC = () => {
     // Limpiar búsqueda y enfocar
     setBusqueda('');
     setProductos([]);
-    if (inputBusquedaRef.current) {
-      inputBusquedaRef.current.focus();
-    }
+    // Focus inmediato después de agregar producto
+    requestAnimationFrame(() => enfocarInput());
   };
 
   const modificarCantidad = (ID_PRODUCTO: number, nuevaCantidad: number) => {
@@ -231,7 +174,8 @@ const POS: React.FC = () => {
     setCarrito([]);
     setBusqueda('');
     setProductos([]);
-    enfocarInput();
+    // Focus inmediato después de limpiar
+    requestAnimationFrame(() => enfocarInput());
   }, [enfocarInput]);
 
   const procesarVenta = async () => {
@@ -300,29 +244,31 @@ const POS: React.FC = () => {
       const ticketData = await prepareTicketData(baseTicketData);
 
       const printResult = await window.electronAPI.printTicket(ticketData);
-      
+
       if (printResult.success) {
-        // Primero cerrar el modal y limpiar estados
+        // Limpiar estados inmediatamente
         setShowPaymentModal(false);
         setEfectivo('');
         setTipoPago('EFECTIVO');
         setProcesandoVenta(false);
-        
-        // Luego mostrar el mensaje y limpiar carrito
-        alert('Venta procesada correctamente');
+
+        // Mostrar notificación no bloqueante
+        setNotificacion('✅ Venta procesada correctamente');
+        setTimeout(() => setNotificacion(null), 3000);
+
+        // Limpiar carrito inmediatamente
         limpiarCarrito();
-        
-        // Usar función optimizada para enfocar
-        enfocarInput();
       } else {
         setProcesandoVenta(false);
-        alert('Error al imprimir ticket: ' + printResult.error);
+        setNotificacion('❌ Error al imprimir ticket: ' + printResult.error);
+        setTimeout(() => setNotificacion(null), 5000);
       }
 
     } catch (error) {
       setProcesandoVenta(false);
       console.error('Error procesando venta:', error);
-      alert('Error procesando la venta');
+      setNotificacion('❌ Error procesando la venta');
+      setTimeout(() => setNotificacion(null), 5000);
     }
   };
 
@@ -661,7 +607,7 @@ const POS: React.FC = () => {
                   setShowPaymentModal(false);
                   setEfectivo('');
                   setTipoPago('EFECTIVO');
-                  enfocarInput();
+                  requestAnimationFrame(() => enfocarInput());
                 }}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
               >
@@ -695,6 +641,17 @@ const POS: React.FC = () => {
                 }
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notificación no bloqueante */}
+      {notificacion && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className={`px-6 py-3 rounded-lg shadow-lg text-white font-medium ${
+            notificacion.startsWith('✅') ? 'bg-green-600' : 'bg-red-600'
+          }`}>
+            {notificacion}
           </div>
         </div>
       )}

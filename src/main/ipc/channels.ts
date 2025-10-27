@@ -31,7 +31,7 @@ export class IpcChannelManager {
     this.saleHandler = new SaleHandler();
     this.configHandler = new ConfigHandler();
     this.reportHandler = new ReportHandler();
-    this.backupHandler = new BackupHandler();
+    this.backupHandler = new BackupHandler(db);
     this.syncHandler = new SyncHandler();
     this.plmHandler = new PLMHandler();
     this.systemHandler = new SystemHandler();
@@ -83,6 +83,10 @@ export class IpcChannelManager {
     ipcMain.handle(IpcChannels.SALE_GET_BY_FOLIO, this.saleHandler.getByFolio.bind(this.saleHandler));
     ipcMain.handle(IpcChannels.SALE_GET_DAILY, this.saleHandler.getDaily.bind(this.saleHandler));
 
+    // POS - Compatibilidad
+    ipcMain.handle('pos:procesarVenta', this.saleHandler.procesarVenta.bind(this.saleHandler));
+    ipcMain.handle('pos:getResumenVentas', this.saleHandler.getResumenVentas.bind(this.saleHandler));
+
     // Configuración
     ipcMain.handle(IpcChannels.CONFIG_GET_SUCURSAL, this.configHandler.getSucursal.bind(this.configHandler));
     ipcMain.handle(IpcChannels.CONFIG_UPDATE_SUCURSAL, this.configHandler.updateSucursal.bind(this.configHandler));
@@ -99,6 +103,9 @@ export class IpcChannelManager {
     ipcMain.handle(IpcChannels.BACKUP_RESTORE, this.backupHandler.restore.bind(this.backupHandler));
     ipcMain.handle(IpcChannels.BACKUP_EXPORT_USB, this.backupHandler.exportToUSB.bind(this.backupHandler));
     ipcMain.handle(IpcChannels.BACKUP_LIST, this.backupHandler.list.bind(this.backupHandler));
+    ipcMain.handle(IpcChannels.BACKUP_DETECT_USB, this.backupHandler.detectUSB.bind(this.backupHandler));
+    ipcMain.handle(IpcChannels.BACKUP_SELECT_FILE, this.backupHandler.selectFile.bind(this.backupHandler));
+    ipcMain.handle(IpcChannels.BACKUP_SELECT_DIRECTORY, this.backupHandler.selectDirectory.bind(this.backupHandler));
 
     // Sincronización
     ipcMain.handle(IpcChannels.SYNC_START, this.syncHandler.start.bind(this.syncHandler));

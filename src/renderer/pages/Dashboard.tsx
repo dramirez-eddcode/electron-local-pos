@@ -41,7 +41,7 @@ const Dashboard: React.FC = () => {
       const result = await window.electronAPI.printTicket(testTicket);
       setTestResult({ type: 'print', result });
     } catch (error) {
-      setTestResult({ type: 'print', error: error.message });
+      setTestResult({ type: 'print', error: (error as Error).message });
     }
   };
 
@@ -50,7 +50,7 @@ const Dashboard: React.FC = () => {
       const result = await window.electronAPI.openCashDrawer();
       setTestResult({ type: 'drawer', result });
     } catch (error) {
-      setTestResult({ type: 'drawer', error: error.message });
+      setTestResult({ type: 'drawer', error: (error as Error).message });
     }
   };
 
@@ -59,7 +59,7 @@ const Dashboard: React.FC = () => {
       const result = await window.electronAPI.dbQuery('SELECT COUNT(*) as count FROM PRODUCTO WHERE ACTIVO = 1', []);
       setTestResult({ type: 'db', result });
     } catch (error) {
-      setTestResult({ type: 'db', error: error.message });
+      setTestResult({ type: 'db', error: (error as Error).message });
     }
   };
 

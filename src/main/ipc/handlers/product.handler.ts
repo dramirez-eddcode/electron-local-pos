@@ -2,53 +2,86 @@ import { db } from '../../database/connection.js';
 import type { IpcResponse, Producto } from '../../../shared/types/index.js';
 
 export class ProductHandler {
-  async search(event: any, query: { 
-    term: string; 
-    type: 'nombre' | 'sustancia' | 'codigo'; 
-    limit?: number 
-  }): Promise<IpcResponse<Producto[]>> {
+  async search(event: any, searchParams: any): Promise<IpcResponse<Producto[]>> {
     try {
-      const { term, type, limit = 50 } = query;
-      
+      console.log('Searching products with params:', searchParams);
+
+      // Soportar diferentes formatos de parámetros
+      let term: string;
+      let sucursalId: string | undefined;
+      let limit = 50;
+
+      if (typeof searchParams === 'string') {
+        // Formato simple: solo el término de búsqueda
+        term = searchParams;
+      } else if (searchParams.query) {
+        // Formato del POS: { query: 'término', sucursalId: 'id' }
+        term = searchParams.query;
+        sucursalId = searchParams.sucursalId;
+        limit = searchParams.limit || 50;
+      } else if (searchParams.term) {
+        // Formato original: { term: 'término', type: 'tipo' }
+        term = searchParams.term;
+        limit = searchParams.limit || 50;
+      } else {
+        return {
+          success: false,
+          error: 'Parámetros de búsqueda inválidos'
+        };
+      }
+
+      if (!term || term.trim().length < 1) {
+        return {
+          success: true,
+          data: []
+        };
+      }
+
       let sql = `
         SELECT p.*, l.nombre_laboratorio
         FROM PRODUCTO p
         LEFT JOIN LABORATORIO l ON p.ID_LABORATORIO = l.id_laboratorio
         WHERE p.ACTIVO = 1
       `;
-      
+
       let params: any[] = [];
-      
-      switch (type) {
-        case 'nombre':
-          sql += ' AND p.NOMBRE_PRODUCTO LIKE ?';
-          params.push(`%${term}%`);
-          break;
-        case 'sustancia':
-          sql += ' AND p.SUSTANCIA_PRODUCTO LIKE ?';
-          params.push(`%${term}%`);
-          break;
-        case 'codigo':
-          sql += ' AND p.CODIGO_PRODUCTO LIKE ?';
-          params.push(`%${term}%`);
-          break;
+
+      // Filtrar por sucursal si se proporciona
+      if (sucursalId) {
+        sql += ' AND p.SUCURSAL_ID = ?';
+        params.push(sucursalId);
       }
-      
+
+      // Búsqueda flexible en múltiples campos
+      sql += ` AND (
+        p.NOMBRE_PRODUCTO LIKE ? OR
+        p.CODIGO_PRODUCTO LIKE ? OR
+        p.SUSTANCIA_PRODUCTO LIKE ?
+      )`;
+
+      const searchTerm = `%${term}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+
       sql += ' ORDER BY p.NOMBRE_PRODUCTO LIMIT ?';
       params.push(limit);
-      
+
+      console.log('Executing query:', sql);
+      console.log('With params:', params);
+
       const productos = await db.query(sql, params);
-      
+
+      console.log(`Found ${productos?.length || 0} products`);
+
       return {
         success: true,
-        data: productos
+        data: productos || []
       };
-      
+
     } catch (error) {
       console.error('Error buscando productos:', error);
       return {
         success: false,
-        error: 'Error al buscar productos'
+        error: `Error al buscar productos: ${error instanceof Error ? error.message : 'Error desconocido'}`
       };
     }
   }

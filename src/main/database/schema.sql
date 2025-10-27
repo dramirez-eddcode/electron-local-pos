@@ -220,6 +220,20 @@ CREATE TABLE IF NOT EXISTS AUDIT_LOG (
     FOREIGN KEY (SUCURSAL_ID) REFERENCES SUCURSAL(SUCURSAL_ID)
 );
 
+-- Log de respaldos
+CREATE TABLE IF NOT EXISTS BACKUP_LOG (
+    ID_BACKUP INTEGER PRIMARY KEY AUTOINCREMENT,
+    archivo VARCHAR(255) NOT NULL,
+    fecha DATETIME NOT NULL,
+    sucursal_id VARCHAR(36) NOT NULL,
+    checksum VARCHAR(64),
+    tablas TEXT, -- JSON con lista de tablas
+    registros INTEGER DEFAULT 0,
+    tamano INTEGER DEFAULT 0,
+    descripcion TEXT,
+    FOREIGN KEY (sucursal_id) REFERENCES SUCURSAL(SUCURSAL_ID)
+);
+
 -- Índices para optimización de consultas
 CREATE INDEX IF NOT EXISTS idx_producto_codigo ON PRODUCTO(CODIGO_PRODUCTO);
 CREATE INDEX IF NOT EXISTS idx_producto_nombre ON PRODUCTO(NOMBRE_PRODUCTO);

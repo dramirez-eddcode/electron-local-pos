@@ -1,6 +1,9 @@
 // Tipos para window.electronAPI
 
 export interface ElectronAPI {
+  // Método genérico para invocar cualquier canal IPC
+  invoke: (channel: string, ...args: any[]) => Promise<any>;
+
   // Funciones existentes de impresión y cajón
   printTicket: (ticketData: any) => Promise<{ success: boolean; message?: string; error?: string }>;
   getPrinters: () => Promise<{ success: boolean; printers?: any[]; error?: string }>;
